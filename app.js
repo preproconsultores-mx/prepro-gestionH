@@ -403,7 +403,7 @@ function PolicySummaryModal({ policy: p, onClose }) {
           </div>
           <div style={{display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 6}}>
             <span style={{color: 'var(--text-muted)'}}>Monto:</span>
-            <strong style={{color: '#34d399', fontSize: 15}}>{formatMoney(p.monto)}</strong>
+            <strong style={{color: '#34d399', fontSize: 15}}>{formatMoney(getEffectiveMonto(p))}</strong>
           </div>
           <div style={{display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 6}}>
             <span style={{color: 'var(--text-muted)'}}>Estatus:</span>
@@ -427,6 +427,20 @@ function PolicySummaryModal({ policy: p, onClose }) {
               <div style={{marginTop: 4}}>{p.notas}</div>
             </div>
           )}
+          {p.polizaAnteriorNum && (
+            <div style={{marginTop: 6, padding: '8px 12px', borderRadius: 8, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8}}>
+              <span style={{fontSize: 15}}>🔗</span>
+              <span style={{color: 'var(--text-muted)'}}>Póliza Anterior:</span>
+              <strong style={{color: '#818cf8'}}>{p.polizaAnteriorNum}</strong>
+            </div>
+          )}
+          {p._archived && (
+            <div style={{marginTop: 6, padding: '8px 12px', borderRadius: 8, background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8}}>
+              <span style={{fontSize: 15}}>📦</span>
+              <span style={{color: 'var(--text-muted)'}}>Archivada el:</span>
+              <strong style={{color: '#34d399'}}>{formatDate(p.fechaArchivado)}</strong>
+            </div>
+          )}
         </div>
         <div className="modal-footer" style={{background: 'var(--bg-secondary)', padding: '12px 20px', display: 'flex', justifyContent: 'flex-end'}}>
           <button className="btn btn-primary btn-sm" onClick={onClose}>Entendido</button>
@@ -436,7 +450,109 @@ function PolicySummaryModal({ policy: p, onClose }) {
   );
 }
 
-function DateCell({ dateStr, estatus, periodoGracia }) {
+// ─── Modal Confirmar Renovación ───────────────────────────────
+function RenewConfirmModal({ policy, onConfirm, onClose }) {
+  useEscapeKey(onClose);
+  if (!policy) return null;
+  return (
+    <div className="modal-overlay" onClick={onClose} style={{zIndex: 999999}}>
+      <div className="modal" style={{maxWidth: 430}} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 style={{display:'flex',alignItems:'center',gap:8}}>🔄 Renovar Póliza</h2>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div style={{textAlign:'center', padding:'10px 0 16px'}}>
+            <div style={{fontSize:42, marginBottom:12}}>📋➡️📋</div>
+            <p style={{fontSize:14, color:'var(--text-secondary)', lineHeight:1.7}}>
+              Vas a renovar la póliza <strong style={{color:'var(--text-primary)'}}>{policy.poliza}</strong> de <strong style={{color:'var(--text-primary)'}}>{policy.nombre}</strong>.
+            </p>
+            <div style={{background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.25)', borderRadius:8, padding:'12px 16px', marginTop:14, textAlign:'left', fontSize:13}}>
+              <p style={{margin:'0 0 6px', fontWeight:600, color:'#818cf8'}}>¿Qué pasará?</p>
+              <ul style={{margin:0, paddingLeft:18, color:'var(--text-secondary)', lineHeight:1.8}}>
+                <li>La póliza actual se moverá a <strong>📦 Histórico</strong> con estatus <strong>RENOVADA</strong>.</li>
+                <li>Se abrirá el editor con los datos del cliente pre-llenados.</li>
+                <li>Solo deberás ingresar el nuevo número de póliza, monto y fecha.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-outline" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" onClick={() => { onConfirm(policy); onClose(); }}>🔄 Confirmar Renovación</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Página: Histórico / Archivo de Pólizas Renovadas ────────
+function ArchivedPoliciesPage({ policies }) {
+  const [summaryPolicy, setSummaryPolicy] = useState(null);
+  if (!policies || policies.length === 0) {
+    return (
+      <div className="card" style={{padding: 60, textAlign: 'center'}}>
+        <div style={{fontSize: 48, marginBottom: 16}}>📦</div>
+        <h3 style={{color:'var(--text-primary)', marginBottom: 8}}>Sin pólizas archivadas</h3>
+        <p style={{color:'var(--text-muted)', fontSize: 14}}>
+          Aquí aparecerán las pólizas renovadas del año anterior para consulta histórica.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div className="card" style={{marginBottom: 16}}>
+        <div className="card-header">
+          <span className="card-title">📦 Pólizas Renovadas / Históricas ({policies.length})</span>
+        </div>
+        <div style={{overflowX:'auto'}}>
+          <table className="policies-table">
+            <thead>
+              <tr>
+                <th>Asegurado</th>
+                <th>Póliza</th>
+                <th>Ramo</th>
+                <th>Agente</th>
+                <th>Forma Pago</th>
+                <th>Fecha (última)</th>
+                <th>Monto</th>
+                <th>Archivada</th>
+                <th>Póliza Nueva</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...policies].sort((a,b) => (b.fechaArchivado||'').localeCompare(a.fechaArchivado||'')).map(p => (
+                <tr key={p.id} style={{cursor:'pointer'}} onDoubleClick={() => setSummaryPolicy(p)}>
+                  <td><span style={{fontWeight:600}}>{p.nombre}</span></td>
+                  <td><span style={{fontFamily:'monospace', fontSize:12, color:'var(--accent-blue-light)'}}>{p.poliza}</span></td>
+                  <td><RamoBadge policy={p} /></td>
+                  <td><AgentBadge policy={p} agente={p.agente || p.aseguradora} /></td>
+                  <td><span className="forma-badge">{p.formaPago}</span></td>
+                  <td style={{fontSize:12}}>{formatDate(p.fechaPago)}</td>
+                  <td><span style={{fontWeight:600, color:'var(--text-secondary)'}}>{formatMoney(p.monto)}</span></td>
+                  <td style={{fontSize:12, color:'var(--text-muted)'}}>{formatDate(p.fechaArchivado)}</td>
+                  <td>
+                    {p.polizaRenovadaNum
+                      ? <span style={{fontFamily:'monospace', fontSize:12, color:'#34d399', fontWeight:600}}>🔗 {p.polizaRenovadaNum}</span>
+                      : <span style={{color:'var(--text-muted)', fontSize:11}}>—</span>
+                    }
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{padding:'12px 24px', borderTop:'1px solid var(--border)', fontSize:12, color:'var(--text-muted)'}}>
+          💡 Doble clic en cualquier fila para ver el resumen completo. Estas pólizas son de solo lectura.
+        </div>
+      </div>
+      {summaryPolicy && <PolicySummaryModal policy={summaryPolicy} onClose={() => setSummaryPolicy(null)} />}
+    </div>
+  );
+}
+
+function DateCell({ dateStr, estatus, periodoGracia, renewalDateStr }) {
   // Solo considerar periodoGracia si es posterior o igual a la fechaPago (primer recibo)
   const activeGracia = (periodoGracia && periodoGracia >= dateStr) ? periodoGracia : null;
 
@@ -445,10 +561,18 @@ function DateCell({ dateStr, estatus, periodoGracia }) {
 
   if (!dateStr) return <span className="text-muted">—</span>;
   if (estatus === 'LIQUIDADO') {
+    const renewalDate = renewalDateStr ? formatDate(renewalDateStr) : null;
+    const daysToRenewal = renewalDateStr ? daysUntil(renewalDateStr) : null;
+    const renewalSoon = daysToRenewal !== null && daysToRenewal <= 15;
     return (
-      <div style={{display:'flex', flexDirection:'column'}}>
+      <div style={{display:'flex', flexDirection:'column', gap: 1}}>
         <span className="date-normal" style={{color: 'var(--text-primary)'}}>{formatDate(dateStr)}</span>
         <span style={{fontSize:10, color:'var(--accent-blue-light)'}}>Último pago</span>
+        {renewalDate && (
+          <span style={{fontSize:10, color: renewalSoon ? '#f472b6' : 'var(--text-muted)', fontWeight: renewalSoon ? 700 : 400, marginTop: 1}}>
+            🔄 Renueva: {renewalDate}{renewalSoon && daysToRenewal >= 0 ? ` (${daysToRenewal}d)` : renewalSoon ? ' ⚠ vencida' : ''}
+          </span>
+        )}
       </div>
     );
   }
@@ -522,7 +646,7 @@ function fillTemplate(tpl, policy, isWA = false) {
     .replace(/{nombre}/g, policy.nombre || '')
     .replace(/{poliza}/g, policy.poliza || '')
     .replace(/{bien}/g, policy.bien || '')
-    .replace(/{monto}/g, formatMoney(policy.monto))
+    .replace(/{monto}/g, formatMoney(getEffectiveMonto(policy)))
     .replace(/{formaPago}/g, policy.formaPago || '')
     .replace(/{agente}/g, policy.agente || '')
     .replace(/{fechaPago}/g, formatDate(policy.fechaPago))
@@ -1257,7 +1381,7 @@ function ContactModal({ policy, type, templates, onClose }) {
 }
 
 // ─── Tabla Principal de Pólizas ───────────────────────────────
-function PoliciesTable({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEmail, compact = true, showSectionTag = false }) {
+function PoliciesTable({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEmail, onRenew, compact = true, showSectionTag = false }) {
   const [sort, setSort] = useState({ key: 'fechaPago', dir: 'asc' });
   const [summaryPolicy, setSummaryPolicy] = useState(null);
 
@@ -1342,13 +1466,22 @@ function PoliciesTable({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onE
               <td><AgentBadge policy={p} agente={p.agente || p.aseguradora} /></td>
               {showSectionTag && <td><RamoBadge policy={p} /></td>}
               <td><span className="forma-badge">{p.formaPago}</span></td>
-              <td><DateCell dateStr={p.fechaPago} estatus={p.estatus} periodoGracia={p.periodoGracia} /></td>
+              <td><DateCell dateStr={p.fechaPago} estatus={p.estatus} periodoGracia={p.periodoGracia} renewalDateStr={p.estatus === 'LIQUIDADO' ? getRenewalDate(p) : null} /></td>
               <td><span style={{fontWeight:600}}>{formatMoney(getEffectiveMonto(p))}</span></td>
               <td><StatusBadge policy={p} /></td>
               <td>
                 <div className="action-btns">
-                  <button className="action-btn action-btn-status" title="Confirmar pago / subir comprobante"
-                    onClick={() => onMarkPaid(p)}>✅</button>
+                  {p.estatus !== 'LIQUIDADO' && (
+                    <button className="action-btn action-btn-status" title="Confirmar pago / subir comprobante"
+                      onClick={() => onMarkPaid(p)}>✅</button>
+                  )}
+                  {p.estatus === 'LIQUIDADO' && onRenew && isUpcomingRenewal(p) && (
+                    <button
+                      title="Renovar póliza para el siguiente año"
+                      onClick={() => onRenew(p)}
+                      style={{background:'rgba(99,102,241,0.15)', border:'1px solid rgba(99,102,241,0.4)', borderRadius:6, padding:'4px 8px', cursor:'pointer', fontSize:15, color:'#818cf8', fontWeight:700}}
+                    >🔄</button>
+                  )}
                   <button className="action-btn action-btn-whatsapp" title="Enviar WhatsApp"
                     onClick={() => onWhatsApp(p)}>
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
@@ -1373,7 +1506,7 @@ function PoliciesTable({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onE
 }
 
 // ─── Página: Dashboard ────────────────────────────────────────
-function DashboardPage({ policies, onMarkPaid, onWhatsApp, onEmail, onEdit, onDelete }) {
+function DashboardPage({ policies, onMarkPaid, onWhatsApp, onEmail, onEdit, onDelete, onRenew }) {
   const [filterEstatus, setFilterEstatus] = useState('TODOS');
 
   const stats = useMemo(() => {
@@ -1517,6 +1650,7 @@ function DashboardPage({ policies, onMarkPaid, onWhatsApp, onEmail, onEdit, onDe
                 onMarkPaid={onMarkPaid}
                 onWhatsApp={onWhatsApp}
                 onEmail={onEmail}
+                onRenew={onRenew}
               />
             </div>
           )}
@@ -1527,7 +1661,7 @@ function DashboardPage({ policies, onMarkPaid, onWhatsApp, onEmail, onEdit, onDe
 }
 
 // ─── Página: Qualitas D&M (Pólizas Separadas) ─────────────────
-function PoliciesPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEmail, onNew, onUpdatePolicy, defaultEstatus = 'TODOS' }) {
+function PoliciesPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEmail, onRenew, onNew, onUpdatePolicy, defaultEstatus = 'TODOS' }) {
   const [selectedImg, setSelectedImg] = useState(null);
 
   const [search, setSearch] = useState('');
@@ -1714,6 +1848,7 @@ function PoliciesPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEm
             onMarkPaid={onMarkPaid}
             onWhatsApp={onWhatsApp}
             onEmail={onEmail}
+            onRenew={onRenew}
           />
           {filtered.length > 0 && (
             <div style={{padding:'12px 24px', borderTop:'1px solid var(--border)', fontSize:12, color:'var(--text-muted)', display:'flex', justifyContent:'space-between'}}>
@@ -1853,7 +1988,7 @@ function UrgentPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEmai
 
 
 // ─── Página: Clave Caro (Pólizas Separadas) ───────────────────
-function CaroPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, onEmail, toast }) {
+function CaroPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, onEmail, onRenew, toast }) {
   const [modalNew, setModalNew] = useState(false);
   const [modalEdit, setModalEdit] = useState(null);
   const [modalPaid, setModalPaid] = useState(null);
@@ -2041,6 +2176,7 @@ function CaroPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, 
             onMarkPaid={setModalPaid}
             onWhatsApp={onWhatsApp}
             onEmail={onEmail}
+            onRenew={onRenew}
           />
           {filtered.length > 0 && (
             <div style={{padding:'12px 24px', borderTop:'1px solid var(--border)', fontSize:12, color:'var(--text-muted)', display:'flex', justifyContent:'space-between'}}>
@@ -2150,7 +2286,7 @@ function CaroPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, 
 }
 
 // ─── Página: Gastos Médicos Mayores (GMM - Pólizas Separadas) ──
-function GmmPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, onEmail, toast }) {
+function GmmPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, onEmail, onRenew, toast }) {
   const [modalNew, setModalNew] = useState(false);
   const [modalEdit, setModalEdit] = useState(null);
   const [modalPaid, setModalPaid] = useState(null);
@@ -2338,6 +2474,7 @@ function GmmPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, o
             onMarkPaid={setModalPaid}
             onWhatsApp={onWhatsApp}
             onEmail={onEmail}
+            onRenew={onRenew}
           />
           {filtered.length > 0 && (
             <div style={{padding:'12px 24px', borderTop:'1px solid var(--border)', fontSize:12, color:'var(--text-muted)', display:'flex', justifyContent:'space-between'}}>
@@ -2475,7 +2612,7 @@ function GmmPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, o
 }
 
 // ─── Autos Otras Aseguradoras Page ────────────────────────────
-function AutosOtrasPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, onEmail, toast }) {
+function AutosOtrasPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, onEmail, onRenew, toast }) {
   const [modalNew, setModalNew] = useState(false);
   const [modalEdit, setModalEdit] = useState(null);
   const [modalPaid, setModalPaid] = useState(null);
@@ -2663,6 +2800,7 @@ function AutosOtrasPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhat
             onMarkPaid={setModalPaid}
             onWhatsApp={onWhatsApp}
             onEmail={onEmail}
+            onRenew={onRenew}
           />
           {filtered.length > 0 && (
             <div style={{padding:'12px 24px', borderTop:'1px solid var(--border)', fontSize:12, color:'var(--text-muted)', display:'flex', justifyContent:'space-between'}}>
@@ -2809,6 +2947,7 @@ function SectionPoliciesPage({
   onMarkPaid, 
   onWhatsApp, 
   onEmail, 
+  onRenew,
   toast,
   isVida = false,
   isDanos = false,
@@ -3003,6 +3142,7 @@ function SectionPoliciesPage({
             onMarkPaid={setModalPaid}
             onWhatsApp={onWhatsApp}
             onEmail={onEmail}
+            onRenew={onRenew}
           />
           {filtered.length > 0 && (
             <div style={{padding:'12px 24px', borderTop:'1px solid var(--border)', fontSize:12, color:'var(--text-muted)', display:'flex', justifyContent:'space-between'}}>
@@ -4310,6 +4450,13 @@ function App() {
     } catch { return []; }
   });
 
+  const [archivedPolicies, setArchivedPolicies] = useState(() => {
+    try {
+      const stored = localStorage.getItem('sc_archived_policies');
+      return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+  });
+
   const [dbConnected, setDbConnected] = useState(false);
   const FIREBASE_REST_URL = 'https://pre-pro-consultores-gestion-default-rtdb.firebaseio.com/app_data';
 
@@ -4359,6 +4506,12 @@ function App() {
     const cotList = parseList(data.cotizaciones);
     setCotizaciones(cotList);
     localStorage.setItem('sc_cotizaciones', JSON.stringify(cotList));
+
+    if (data.archivedPolicies) {
+      const archList = parseList(data.archivedPolicies);
+      setArchivedPolicies(archList);
+      localStorage.setItem('sc_archived_policies', JSON.stringify(archList));
+    }
 
     if (data.templates) {
       setTemplates(data.templates);
@@ -4442,6 +4595,7 @@ function App() {
     const localCoti = JSON.parse(localStorage.getItem('sc_cotizaciones') || '[]');
     const localTpls = JSON.parse(localStorage.getItem('sc_templates') || 'null') || DEFAULT_TEMPLATES;
 
+    const localArch = JSON.parse(localStorage.getItem('sc_archived_policies') || '[]');
     const payload = {
       policies: localPols,
       caroPolicies: localCaro,
@@ -4452,6 +4606,7 @@ function App() {
       hogarPolicies: localHogar,
       siniestros: localSini,
       cotizaciones: localCoti,
+      archivedPolicies: localArch,
       templates: localTpls
     };
 
@@ -4481,6 +4636,7 @@ function App() {
   useEffect(() => { localStorage.setItem('sc_siniestros', JSON.stringify(siniestros)); }, [siniestros]);
   useEffect(() => { localStorage.setItem('sc_cotizaciones', JSON.stringify(cotizaciones)); }, [cotizaciones]);
   useEffect(() => { localStorage.setItem('sc_templates', JSON.stringify(templates)); }, [templates]);
+  useEffect(() => { localStorage.setItem('sc_archived_policies', JSON.stringify(archivedPolicies)); }, [archivedPolicies]);
 
   const urgentCount = useMemo(() => policies.filter(p => {
     if (p.estatus === 'PAGADO' || p.estatus === 'CANCELADO' || p.estatus === 'LIQUIDADO') return false;
@@ -4921,6 +5077,66 @@ function App() {
   const danosUrgentCount = useMemo(() => danosPolicies.filter(p => isUpcomingReminder(p) || isExpiredEffective(p)).length, [danosPolicies]);
   const hogarUrgentCount = useMemo(() => hogarPolicies.filter(p => isUpcomingReminder(p) || isExpiredEffective(p)).length, [hogarPolicies]);
 
+  // ─── Renovar Póliza ───────────────────────────────────────────
+  const [renewConfirm, setRenewConfirm] = useState(null); // póliza a renovar
+
+  const doRenewPolicy = useCallback((oldPolicy) => {
+    const today = todayISO();
+    // 1. Archivar la póliza vieja
+    const archived = {
+      ...oldPolicy,
+      _archived: true,
+      estatus: 'RENOVADA',
+      fechaArchivado: today,
+      polizaRenovadaNum: '' // se llenará cuando se guarde la nueva
+    };
+    setArchivedPolicies(prev => {
+      const next = [...prev, archived];
+      localStorage.setItem('sc_archived_policies', JSON.stringify(next));
+      setTimeout(() => syncCategoryToCloud('archivedPolicies', next), 0);
+      return next;
+    });
+    // 2. Eliminar la póliza de su categoría original
+    purgePolicyFromAllCategories(oldPolicy.id);
+    toast(`Póliza ${oldPolicy.poliza} archivada como RENOVADA 📦`, 'success');
+    // 3. Pre-llenar el editor con los datos del cliente
+    const prefilled = {
+      nombre: oldPolicy.nombre,
+      correo: oldPolicy.correo || '',
+      telefono: oldPolicy.telefono || '',
+      telefono2: oldPolicy.telefono2 || '',
+      lada: oldPolicy.lada || 'mx',
+      lada2: oldPolicy.lada2 || 'mx',
+      agente: oldPolicy.agente || '',
+      agenteCustom: '',
+      aseguradora: oldPolicy.aseguradora || '',
+      bien: oldPolicy.bien || '',
+      formaPago: oldPolicy.formaPago || 'CONTADO',
+      perteneceA: oldPolicy.perteneceA || '',
+      polizaAnteriorNum: oldPolicy.poliza,
+      // Campos en blanco para que llene
+      poliza: '',
+      monto: '',
+      montoSubsecuente: '',
+      fechaPago: '',
+      fechaInicioVigencia: today,
+      periodoGracia: '',
+      estatus: 'PENDIENTE',
+      notas: '',
+      comprobante: null,
+      // Flags de ramo
+      _isCaro: oldPolicy._isCaro,
+      _isGmm: oldPolicy._isGmm,
+      _isAutos: oldPolicy._isAutos,
+      _isVida: oldPolicy._isVida,
+      _isDanos: oldPolicy._isDanos,
+      _isHogar: oldPolicy._isHogar,
+    };
+    setModalEdit(prefilled);
+  }, [purgePolicyFromAllCategories, syncCategoryToCloud, toast]);
+
+  const onRenew = useCallback((policy) => setRenewConfirm(policy), []);
+
   const navItems = [
     { id: 'dashboard', label: 'Panel de Control', Icon: Icons.Dashboard },
     { id: 'policies', label: 'Autos Qualitas', Icon: Icons.Policies },
@@ -4930,6 +5146,7 @@ function App() {
     { id: 'vida_policies', label: 'Vida', Icon: Icons.Heart, badge: vidaUrgentCount > 0 ? vidaUrgentCount : null },
     { id: 'danos_policies', label: 'Daños', Icon: Icons.Briefcase, badge: danosUrgentCount > 0 ? danosUrgentCount : null },
     { id: 'hogar_policies', label: 'Hogar', Icon: Icons.Home, badge: hogarUrgentCount > 0 ? hogarUrgentCount : null },
+    { id: 'archive', label: '📦 Histórico', Icon: Icons.Import, badge: archivedPolicies.length > 0 ? archivedPolicies.length : null },
     { id: 'templates', label: 'Plantillas', Icon: Icons.Templates },
     { id: 'import', label: 'Importar / Exportar', Icon: Icons.Import },
   ];
@@ -4943,6 +5160,7 @@ function App() {
     vida_policies: 'Pólizas de Vida',
     danos_policies: 'Pólizas de Daños',
     hogar_policies: 'Pólizas de Hogar',
+    archive: '📦 Histórico de Pólizas Renovadas',
     templates: 'Plantillas de Mensajes',
     import: 'Importar / Exportar',
   };
@@ -4964,6 +5182,7 @@ function App() {
     onMarkPaid: (p) => setModalPaid(p),
     onWhatsApp: (p) => setModalContact({ policy: p, type: 'whatsapp' }),
     onEmail: (p) => setModalContact({ policy: p, type: 'email' }),
+    onRenew,
     onUpdatePolicy: (p) => {
       if (p._isCaro) saveCaroPolicy(p);
       else if (p._isGmm) saveGmmPolicy(p);
@@ -4982,6 +5201,7 @@ function App() {
     onMarkPaid: (p) => setModalPaid(p),
     onWhatsApp: (p) => setModalContact({ policy: p, type: 'whatsapp' }),
     onEmail: (p) => setModalContact({ policy: p, type: 'email' }),
+    onRenew,
     onUpdatePolicy: savePolicy,
   };
 
@@ -5075,6 +5295,11 @@ function App() {
           {page === 'urgent' && (
             <UrgentPage {...allProps} />
           )}
+          {page === 'archive' && (
+            <ArchivedPoliciesPage
+              policies={archivedPolicies.map(p => ({ ...p }))}
+            />
+          )}
           {page === 'caro_policies' && (
             <CaroPoliciesPage 
               policies={caroPolicies.map(p => ({ ...p, _isCaro: true }))} 
@@ -5083,6 +5308,7 @@ function App() {
               onMarkPaid={markCaroPaid} 
               onWhatsApp={p => setModalContact({ policy: p, type: 'whatsapp' })}
               onEmail={p => setModalContact({ policy: p, type: 'email' })}
+              onRenew={onRenew}
               toast={toast}
             />
           )}
@@ -5094,6 +5320,7 @@ function App() {
               onMarkPaid={markGmmPaid} 
               onWhatsApp={p => setModalContact({ policy: p, type: 'whatsapp' })}
               onEmail={p => setModalContact({ policy: p, type: 'email' })}
+              onRenew={onRenew}
               toast={toast}
             />
           )}
@@ -5105,6 +5332,7 @@ function App() {
               onMarkPaid={markAutosPaid} 
               onWhatsApp={p => setModalContact({ policy: p, type: 'whatsapp' })}
               onEmail={p => setModalContact({ policy: p, type: 'email' })}
+              onRenew={onRenew}
               toast={toast}
             />
           )}
@@ -5118,6 +5346,7 @@ function App() {
               onMarkPaid={markVidaPaid} 
               onWhatsApp={p => setModalContact({ policy: p, type: 'whatsapp' })}
               onEmail={p => setModalContact({ policy: p, type: 'email' })}
+              onRenew={onRenew}
               toast={toast}
               isVida={true}
             />
@@ -5132,6 +5361,7 @@ function App() {
               onMarkPaid={markDanosPaid} 
               onWhatsApp={p => setModalContact({ policy: p, type: 'whatsapp' })}
               onEmail={p => setModalContact({ policy: p, type: 'email' })}
+              onRenew={onRenew}
               toast={toast}
               isDanos={true}
             />
@@ -5146,6 +5376,7 @@ function App() {
               onMarkPaid={markHogarPaid} 
               onWhatsApp={p => setModalContact({ policy: p, type: 'whatsapp' })}
               onEmail={p => setModalContact({ policy: p, type: 'email' })}
+              onRenew={onRenew}
               toast={toast}
               isHogar={true}
             />
@@ -5270,6 +5501,15 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal Renovar Póliza */}
+      {renewConfirm && (
+        <RenewConfirmModal
+          policy={renewConfirm}
+          onConfirm={doRenewPolicy}
+          onClose={() => setRenewConfirm(null)}
+        />
       )}
 
       {/* Toasts */}
