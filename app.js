@@ -5274,7 +5274,7 @@ function App() {
                 📅 {new Date().toLocaleDateString('es-MX', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })}
               </span>
             </div>
-            {(page === 'dashboard' || page === 'policies') && (
+            {page === 'policies' && (
               <button className="btn btn-primary btn-sm" onClick={() => setModalNew(true)}>
                 <Icons.Plus /> Nueva Póliza
               </button>
