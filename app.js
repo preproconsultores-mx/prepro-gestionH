@@ -124,6 +124,15 @@ const todayISO = () => {
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
+const cleanRecordatorioNota = (notas) => {
+  if (!notas) return '';
+  return notas
+    .split('\n')
+    .filter(line => !line.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes('ya mande recordatorio'))
+    .join('\n')
+    .trim();
+};
+
 // Hook para cerrar modales al presionar la tecla Esc
 function useEscapeKey(onClose) {
   useEffect(() => {
@@ -671,7 +680,7 @@ function FieldGroup({ label, id, required, error, children }) {
 function PolicyModal({ policy, onSave, onClose, toast, agentOptions, isGmm = false, isAutos = false, isVida = false, isDanos = false, isHogar = false }) {
   useEscapeKey(onClose);
   const gmmAseguradoras = ['AXA', 'MAPFRE', 'GNP', 'CHUBB', 'SURA', 'PLAN SEGUROS', 'ZURICH', 'QUALITAS', 'AIG', 'BANORTE', 'OTRO'];
-  const autosAseguradoras = ['ZURICH', 'AXA', 'HDI', 'GNP', 'QUALITAS', 'AIG', 'MAPFRE', 'BANORTE', 'ANA', 'SEGUROS ARGO', 'OTRO'];
+  const autosAseguradoras = ['ZURICH', 'AXA', 'HDI', 'GNP', 'QUALITAS', 'AIG', 'MAPFRE', 'BANORTE', 'ANA', 'SEGUROS ARGO', 'CHUBB', 'OTRO'];
   const defaultOpts = (isGmm || isAutos || isVida || isDanos || isHogar) 
     ? ['DANIEL', 'OTRO'] 
     : ['DANIEL', 'MARTIN'];
@@ -679,13 +688,16 @@ function PolicyModal({ policy, onSave, onClose, toast, agentOptions, isGmm = fal
 
   const isEdit = !!policy?.id;
   const [form, setForm] = useState(() => {
+    const listAseg = isGmm ? gmmAseguradoras : autosAseguradoras;
     if (policy) {
       const isKnown = optsList.includes(policy.agente);
+      const isKnownAseg = listAseg.includes(policy.aseguradora);
       return {
         ...policy,
         agente: isKnown ? policy.agente : 'OTRO',
         agenteCustom: isKnown ? '' : (policy.agente || ''),
-        aseguradora: policy.aseguradora || (isGmm ? gmmAseguradoras[0] : autosAseguradoras[0]),
+        aseguradora: isKnownAseg ? policy.aseguradora : (policy.aseguradora ? 'OTRO' : listAseg[0]),
+        aseguradoraCustom: isKnownAseg ? '' : (policy.aseguradora || ''),
         perteneceA: policy.perteneceA || ''
       };
     }
@@ -694,7 +706,8 @@ function PolicyModal({ policy, onSave, onClose, toast, agentOptions, isGmm = fal
       agente: optsList[0], fechaPago: todayISO(), monto: '',
       estatus: 'PENDIENTE', correo: '', telefono: '', notas: '',
       periodoGracia: '', fechaInicioVigencia: '',
-      aseguradora: isGmm ? gmmAseguradoras[0] : autosAseguradoras[0],
+      aseguradora: listAseg[0],
+      aseguradoraCustom: '',
       agenteCustom: '',
       perteneceA: ''
     };
@@ -724,7 +737,8 @@ function PolicyModal({ policy, onSave, onClose, toast, agentOptions, isGmm = fal
       id: form.id || generateId(),
       monto: Number(form.monto),
       ...(form.formaPago !== 'CONTADO' && form.montoSubsecuente ? { montoSubsecuente: Number(form.montoSubsecuente) } : {}),
-      ...((isAutos || isGmm || isVida || isDanos || isHogar) && form.agente === 'OTRO' && form.agenteCustom ? { agente: form.agenteCustom } : {})
+      ...((isAutos || isGmm || isVida || isDanos || isHogar) && form.agente === 'OTRO' && form.agenteCustom ? { agente: form.agenteCustom } : {}),
+      ...((isAutos || isGmm || isVida || isDanos || isHogar) && form.aseguradora === 'OTRO' && form.aseguradoraCustom ? { aseguradora: form.aseguradoraCustom } : {})
     };
     onSave(saved);
     toast(isEdit ? 'Póliza actualizada ✅' : 'Póliza registrada ✅', 'success');
@@ -792,6 +806,11 @@ function PolicyModal({ policy, onSave, onClose, toast, agentOptions, isGmm = fal
                     <option key={opt} value={opt}>{opt}</option>
                   ))}
                 </select>
+                {form.aseguradora === 'OTRO' && (
+                  <input className="input" style={{marginTop: 8}} value={form.aseguradoraCustom || ''}
+                    onChange={e => set('aseguradoraCustom', e.target.value)}
+                    placeholder="Escribe el nombre de la aseguradora..." />
+                )}
               </FieldGroup>
             )}
             <FieldGroup label="Inicio de Vigencia" id="fechaInicioVigencia">
@@ -4730,8 +4749,9 @@ function App() {
           ...p, 
           comprobante: comprobante || p.comprobante,
           fechaPagoAnterior: p.fechaPago,
-          fechaUltimoPago: new Date().toISOString().split('T')[0],
+          fechaUltimoPago: todayISO(),
           periodoGracia: '',
+          notas: cleanRecordatorioNota(p.notas),
           ...(nextMonto !== undefined && nextMonto !== '' ? { montoSubsecuente: Number(nextMonto) } : {})
         };
         if (policy.formaPago === 'CONTADO' || isLastPayment) {
@@ -4823,8 +4843,9 @@ function App() {
           ...p, 
           comprobante: comprobante || p.comprobante,
           fechaPagoAnterior: p.fechaPago,
-          fechaUltimoPago: new Date().toISOString().split('T')[0],
+          fechaUltimoPago: todayISO(),
           periodoGracia: '',
+          notas: cleanRecordatorioNota(p.notas),
           ...(nextMonto !== undefined && nextMonto !== '' ? { montoSubsecuente: Number(nextMonto) } : {})
         };
         if (policy.formaPago === 'CONTADO' || isLastPayment) {
@@ -4863,8 +4884,9 @@ function App() {
           ...p, 
           comprobante: comprobante || p.comprobante,
           fechaPagoAnterior: p.fechaPago,
-          fechaUltimoPago: new Date().toISOString().split('T')[0],
+          fechaUltimoPago: todayISO(),
           periodoGracia: '',
+          notas: cleanRecordatorioNota(p.notas),
           ...(nextMonto !== undefined && nextMonto !== '' ? { montoSubsecuente: Number(nextMonto) } : {})
         };
         if (policy.formaPago === 'CONTADO' || isLastPayment) {
@@ -4903,8 +4925,9 @@ function App() {
           ...p, 
           comprobante: comprobante || p.comprobante,
           fechaPagoAnterior: p.fechaPago,
-          fechaUltimoPago: new Date().toISOString().split('T')[0],
+          fechaUltimoPago: todayISO(),
           periodoGracia: '',
+          notas: cleanRecordatorioNota(p.notas),
           ...(nextMonto !== undefined && nextMonto !== '' ? { montoSubsecuente: Number(nextMonto) } : {})
         };
         if (policy.formaPago === 'CONTADO' || isLastPayment) {
@@ -4945,6 +4968,7 @@ function App() {
           fechaPagoAnterior: p.fechaPago,
           fechaUltimoPago: todayISO(),
           periodoGracia: '',
+          notas: cleanRecordatorioNota(p.notas),
           ...(nextMonto !== undefined && nextMonto !== '' ? { montoSubsecuente: Number(nextMonto) } : {})
         };
         if (policy.formaPago === 'CONTADO' || isLastPayment) {
@@ -4985,6 +5009,7 @@ function App() {
           fechaPagoAnterior: p.fechaPago,
           fechaUltimoPago: todayISO(),
           periodoGracia: '',
+          notas: cleanRecordatorioNota(p.notas),
           ...(nextMonto !== undefined && nextMonto !== '' ? { montoSubsecuente: Number(nextMonto) } : {})
         };
         if (policy.formaPago === 'CONTADO' || isLastPayment) {
@@ -5031,6 +5056,7 @@ function App() {
           fechaPagoAnterior: p.fechaPago,
           fechaUltimoPago: todayISO(),
           periodoGracia: '',
+          notas: cleanRecordatorioNota(p.notas),
           ...(nextMonto !== undefined && nextMonto !== '' ? { montoSubsecuente: Number(nextMonto) } : {})
         };
         if (policy.formaPago === 'CONTADO' || isLastPayment) {
