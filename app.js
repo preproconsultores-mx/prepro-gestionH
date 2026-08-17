@@ -356,11 +356,13 @@ function RamoBadge({ policy }) {
 }
 
 // ─── Modal de Resumen de Póliza (Doble Clic) ─────────────────
-function PolicySummaryModal({ policy: p, onClose }) {
+function PolicySummaryModal({ policy: p, onClose, onOpenPolicyNum, allActivePolicies = [] }) {
   useEscapeKey(onClose);
   if (!p) return null;
   const bienLabel = p._isVida ? 'Producto' : p._isGmm ? 'Plan' : p._isHogar ? 'Inmueble' : p._isDanos ? 'Bien Asegurado' : 'Unidad / Vehículo';
   const ramoLabel = p._isCaro ? 'Autos Qualitas Caro' : p._isGmm ? 'GMM' : p._isAutos ? 'Autos (Otras)' : p._isVida ? 'Vida' : p._isDanos ? 'Daños' : p._isHogar ? 'Hogar' : 'Autos Qualitas Dani';
+
+  const renewedNum = p.polizaRenovadaNum || (allActivePolicies && allActivePolicies.find(act => act.polizaAnteriorNum && String(act.polizaAnteriorNum).trim() === String(p.poliza).trim())?.poliza);
 
   return (
     <div className="modal-overlay" onClick={onClose} style={{zIndex: 999999}}>
@@ -437,17 +439,32 @@ function PolicySummaryModal({ policy: p, onClose }) {
             </div>
           )}
           {p.polizaAnteriorNum && (
-            <div style={{marginTop: 6, padding: '8px 12px', borderRadius: 8, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8}}>
+            <div 
+              style={{marginTop: 6, padding: '8px 12px', borderRadius: 8, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8, cursor: onOpenPolicyNum ? 'pointer' : 'default'}}
+              onClick={() => onOpenPolicyNum && onOpenPolicyNum(p.polizaAnteriorNum)}
+              title={onOpenPolicyNum ? "Ver detalles de la póliza anterior" : ""}
+            >
               <span style={{fontSize: 15}}>🔗</span>
               <span style={{color: 'var(--text-muted)'}}>Póliza Anterior:</span>
-              <strong style={{color: '#818cf8'}}>{p.polizaAnteriorNum}</strong>
+              <strong style={{color: '#818cf8', textDecoration: onOpenPolicyNum ? 'underline' : 'none'}}>{p.polizaAnteriorNum} ↗</strong>
+            </div>
+          )}
+          {renewedNum && (
+            <div 
+              style={{marginTop: 6, padding: '8px 12px', borderRadius: 8, background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.25)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8, cursor: onOpenPolicyNum ? 'pointer' : 'default'}}
+              onClick={() => onOpenPolicyNum && onOpenPolicyNum(renewedNum)}
+              title={onOpenPolicyNum ? "Ver detalles de la póliza renovada actual" : ""}
+            >
+              <span style={{fontSize: 15}}>🔗</span>
+              <span style={{color: 'var(--text-muted)'}}>Póliza Renovada Actual:</span>
+              <strong style={{color: '#34d399', textDecoration: onOpenPolicyNum ? 'underline' : 'none'}}>{renewedNum} ↗</strong>
             </div>
           )}
           {p._archived && (
-            <div style={{marginTop: 6, padding: '8px 12px', borderRadius: 8, background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8}}>
+            <div style={{marginTop: 6, padding: '8px 12px', borderRadius: 8, background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8}}>
               <span style={{fontSize: 15}}>📦</span>
               <span style={{color: 'var(--text-muted)'}}>Archivada el:</span>
-              <strong style={{color: '#34d399'}}>{formatDate(p.fechaArchivado)}</strong>
+              <strong style={{color: '#eab308'}}>{formatDate(p.fechaArchivado)}</strong>
             </div>
           )}
         </div>
@@ -496,7 +513,7 @@ function RenewConfirmModal({ policy, onConfirm, onClose }) {
 }
 
 // ─── Página: Histórico / Archivo de Pólizas Renovadas ────────
-function ArchivedPoliciesPage({ policies }) {
+function ArchivedPoliciesPage({ policies, allActivePolicies = [], onOpenPolicyNum }) {
   const [summaryPolicy, setSummaryPolicy] = useState(null);
   if (!policies || policies.length === 0) {
     return (
@@ -509,6 +526,15 @@ function ArchivedPoliciesPage({ policies }) {
       </div>
     );
   }
+
+  const handleRowDoubleClick = (p) => {
+    if (onOpenPolicyNum) {
+      onOpenPolicyNum(p.poliza);
+    } else {
+      setSummaryPolicy(p);
+    }
+  };
+
   return (
     <div>
       <div className="card" style={{marginBottom: 16}}>
@@ -531,32 +557,60 @@ function ArchivedPoliciesPage({ policies }) {
               </tr>
             </thead>
             <tbody>
-              {[...policies].sort((a,b) => (b.fechaArchivado||'').localeCompare(a.fechaArchivado||'')).map(p => (
-                <tr key={p.id} style={{cursor:'pointer'}} onDoubleClick={() => setSummaryPolicy(p)}>
-                  <td><span style={{fontWeight:600}}>{p.nombre}</span></td>
-                  <td><span style={{fontFamily:'monospace', fontSize:12, color:'var(--accent-blue-light)'}}>{p.poliza}</span></td>
-                  <td><RamoBadge policy={p} /></td>
-                  <td><AgentBadge policy={p} agente={p.agente || p.aseguradora} /></td>
-                  <td><span className="forma-badge">{p.formaPago}</span></td>
-                  <td style={{fontSize:12}}>{formatDate(p.fechaPago)}</td>
-                  <td><span style={{fontWeight:600, color:'var(--text-secondary)'}}>{formatMoney(p.monto)}</span></td>
-                  <td style={{fontSize:12, color:'var(--text-muted)'}}>{formatDate(p.fechaArchivado)}</td>
-                  <td>
-                    {p.polizaRenovadaNum
-                      ? <span style={{fontFamily:'monospace', fontSize:12, color:'#34d399', fontWeight:600}}>🔗 {p.polizaRenovadaNum}</span>
-                      : <span style={{color:'var(--text-muted)', fontSize:11}}>—</span>
-                    }
-                  </td>
-                </tr>
-              ))}
+              {[...policies].sort((a,b) => (b.fechaArchivado||'').localeCompare(a.fechaArchivado||'')).map(p => {
+                const renewedNum = p.polizaRenovadaNum || (allActivePolicies && allActivePolicies.find(act => act.polizaAnteriorNum && String(act.polizaAnteriorNum).trim() === String(p.poliza).trim())?.poliza);
+                return (
+                  <tr key={p.id} style={{cursor:'pointer'}} onDoubleClick={() => handleRowDoubleClick(p)}>
+                    <td><span style={{fontWeight:600}}>{p.nombre}</span></td>
+                    <td><span style={{fontFamily:'monospace', fontSize:12, color:'var(--accent-blue-light)'}}>{p.poliza}</span></td>
+                    <td><RamoBadge policy={p} /></td>
+                    <td><AgentBadge policy={p} agente={p.agente || p.aseguradora} /></td>
+                    <td><span className="forma-badge">{p.formaPago}</span></td>
+                    <td style={{fontSize:12}}>{formatDate(p.fechaPago)}</td>
+                    <td><span style={{fontWeight:600, color:'var(--text-secondary)'}}>{formatMoney(p.monto)}</span></td>
+                    <td style={{fontSize:12, color:'var(--text-muted)'}}>{formatDate(p.fechaArchivado)}</td>
+                    <td>
+                      {renewedNum
+                        ? (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{fontSize: 12, padding: '2px 8px', color: '#34d399', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 6, fontWeight: 600, cursor: 'pointer'}}
+                            title="Ver detalles de la póliza renovada actual"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onOpenPolicyNum) {
+                                onOpenPolicyNum(renewedNum);
+                              } else {
+                                const newP = allActivePolicies.find(act => String(act.poliza).trim() === String(renewedNum).trim());
+                                if (newP) setSummaryPolicy(newP);
+                              }
+                            }}
+                          >
+                            🔗 {renewedNum} ↗
+                          </button>
+                        )
+                        : <span style={{color:'var(--text-muted)', fontSize:11}}>—</span>
+                      }
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
         <div style={{padding:'12px 24px', borderTop:'1px solid var(--border)', fontSize:12, color:'var(--text-muted)'}}>
-          💡 Doble clic en cualquier fila para ver el resumen completo. Estas pólizas son de solo lectura.
+          💡 Doble clic en cualquier fila para ver el resumen de la póliza archivada (o clic en 🔗 número para ver la póliza nueva).
         </div>
       </div>
-      {summaryPolicy && <PolicySummaryModal policy={summaryPolicy} onClose={() => setSummaryPolicy(null)} />}
+      {summaryPolicy && (
+        <PolicySummaryModal 
+          policy={summaryPolicy} 
+          allActivePolicies={allActivePolicies}
+          onOpenPolicyNum={onOpenPolicyNum}
+          onClose={() => setSummaryPolicy(null)} 
+        />
+      )}
     </div>
   );
 }
@@ -1400,7 +1454,7 @@ function ContactModal({ policy, type, templates, onClose }) {
 }
 
 // ─── Tabla Principal de Pólizas ───────────────────────────────
-function PoliciesTable({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEmail, onRenew, compact = true, showSectionTag = false }) {
+function PoliciesTable({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEmail, onRenew, onOpenPolicyNum, compact = true, showSectionTag = false }) {
   const [sort, setSort] = useState({ key: 'fechaPago', dir: 'asc' });
   const [summaryPolicy, setSummaryPolicy] = useState(null);
 
@@ -1519,7 +1573,14 @@ function PoliciesTable({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onE
           ))}
         </tbody>
       </table>
-      {summaryPolicy && <PolicySummaryModal policy={summaryPolicy} onClose={() => setSummaryPolicy(null)} />}
+      {summaryPolicy && (
+        <PolicySummaryModal 
+          policy={summaryPolicy} 
+          onOpenPolicyNum={onOpenPolicyNum}
+          allActivePolicies={policies}
+          onClose={() => setSummaryPolicy(null)} 
+        />
+      )}
     </div>
   );
 }
@@ -4677,6 +4738,25 @@ function App() {
     return isUpcomingReminder(p) || isExpiredEffective(p);
   }).length, [autosPolicies]);
 
+  const linkArchivedPolicy = useCallback((polizaAnteriorNum, newPolizaNum) => {
+    if (!polizaAnteriorNum || !newPolizaNum) return;
+    setArchivedPolicies(prev => {
+      let changed = false;
+      const next = prev.map(arch => {
+        if (String(arch.poliza).trim() === String(polizaAnteriorNum).trim() && arch.polizaRenovadaNum !== newPolizaNum) {
+          changed = true;
+          return { ...arch, polizaRenovadaNum: newPolizaNum };
+        }
+        return arch;
+      });
+      if (changed) {
+        localStorage.setItem('sc_archived_policies', JSON.stringify(next));
+        setTimeout(() => syncCategoryToCloud('archivedPolicies', next), 0);
+      }
+      return changed ? next : prev;
+    });
+  }, [syncCategoryToCloud]);
+
   // CRUD
   const savePolicy = useCallback((p) => {
     const policyToSave = { ...p, id: p.id || generateId() };
@@ -4687,7 +4767,10 @@ function App() {
       setTimeout(() => syncCategoryToCloud('policies', next), 0);
       return next;
     });
-  }, []);
+    if (policyToSave.polizaAnteriorNum) {
+      linkArchivedPolicy(policyToSave.polizaAnteriorNum, policyToSave.poliza);
+    }
+  }, [linkArchivedPolicy]);
 
   const purgePolicyFromAllCategories = useCallback((id) => {
     setPolicies(prev => {
@@ -4828,7 +4911,10 @@ function App() {
       setTimeout(() => syncCategoryToCloud('caroPolicies', next), 0);
       return next;
     });
-  }, []);
+    if (policyToSave.polizaAnteriorNum) {
+      linkArchivedPolicy(policyToSave.polizaAnteriorNum, policyToSave.poliza);
+    }
+  }, [linkArchivedPolicy]);
 
   const deleteCaroPolicy = useCallback((id) => {
     purgePolicyFromAllCategories(id);
@@ -4869,7 +4955,10 @@ function App() {
       setTimeout(() => syncCategoryToCloud('gmmPolicies', next), 0);
       return next;
     });
-  }, []);
+    if (policyToSave.polizaAnteriorNum) {
+      linkArchivedPolicy(policyToSave.polizaAnteriorNum, policyToSave.poliza);
+    }
+  }, [linkArchivedPolicy]);
 
   const deleteGmmPolicy = useCallback((id) => {
     purgePolicyFromAllCategories(id);
@@ -4910,7 +4999,10 @@ function App() {
       setTimeout(() => syncCategoryToCloud('autosPolicies', next), 0);
       return next;
     });
-  }, []);
+    if (policyToSave.polizaAnteriorNum) {
+      linkArchivedPolicy(policyToSave.polizaAnteriorNum, policyToSave.poliza);
+    }
+  }, [linkArchivedPolicy]);
 
   const deleteAutosPolicy = useCallback((id) => {
     purgePolicyFromAllCategories(id);
@@ -4951,7 +5043,10 @@ function App() {
       setTimeout(() => syncCategoryToCloud('vidaPolicies', next), 0);
       return next;
     });
-  }, []);
+    if (policyToSave.polizaAnteriorNum) {
+      linkArchivedPolicy(policyToSave.polizaAnteriorNum, policyToSave.poliza);
+    }
+  }, [linkArchivedPolicy]);
 
   const deleteVidaPolicy = useCallback((id) => {
     purgePolicyFromAllCategories(id);
@@ -4992,7 +5087,10 @@ function App() {
       setTimeout(() => syncCategoryToCloud('danosPolicies', next), 0);
       return next;
     });
-  }, []);
+    if (policyToSave.polizaAnteriorNum) {
+      linkArchivedPolicy(policyToSave.polizaAnteriorNum, policyToSave.poliza);
+    }
+  }, [linkArchivedPolicy]);
 
   const deleteDanosPolicy = useCallback((id) => {
     purgePolicyFromAllCategories(id);
@@ -5033,7 +5131,10 @@ function App() {
       setTimeout(() => syncCategoryToCloud('hogarPolicies', next), 0);
       return next;
     });
-  }, []);
+    if (policyToSave.polizaAnteriorNum) {
+      linkArchivedPolicy(policyToSave.polizaAnteriorNum, policyToSave.poliza);
+    }
+  }, [linkArchivedPolicy]);
 
   const deleteHogarPolicy = useCallback((id) => {
     setHogarPolicies(prev => {
@@ -5102,6 +5203,23 @@ function App() {
   const vidaUrgentCount = useMemo(() => vidaPolicies.filter(p => isUpcomingReminder(p) || isExpiredEffective(p)).length, [vidaPolicies]);
   const danosUrgentCount = useMemo(() => danosPolicies.filter(p => isUpcomingReminder(p) || isExpiredEffective(p)).length, [danosPolicies]);
   const hogarUrgentCount = useMemo(() => hogarPolicies.filter(p => isUpcomingReminder(p) || isExpiredEffective(p)).length, [hogarPolicies]);
+
+  const [summaryModalPolicy, setSummaryModalPolicy] = useState(null);
+
+  const openSummaryByPolizaNum = useCallback((polizaNum) => {
+    if (!polizaNum) return;
+    const clean = String(polizaNum).trim();
+    const foundActive = allPolicies.find(p => String(p.poliza).trim() === clean);
+    if (foundActive) {
+      setSummaryModalPolicy(foundActive);
+      return;
+    }
+    const foundArchived = archivedPolicies.find(p => String(p.poliza).trim() === clean);
+    if (foundArchived) {
+      setSummaryModalPolicy(foundArchived);
+      return;
+    }
+  }, [allPolicies, archivedPolicies]);
 
   // ─── Renovar Póliza ───────────────────────────────────────────
   const [renewConfirm, setRenewConfirm] = useState(null); // póliza a renovar
@@ -5209,6 +5327,7 @@ function App() {
     onWhatsApp: (p) => setModalContact({ policy: p, type: 'whatsapp' }),
     onEmail: (p) => setModalContact({ policy: p, type: 'email' }),
     onRenew,
+    onOpenPolicyNum: openSummaryByPolizaNum,
     onUpdatePolicy: (p) => {
       if (p._isCaro) saveCaroPolicy(p);
       else if (p._isGmm) saveGmmPolicy(p);
@@ -5228,6 +5347,7 @@ function App() {
     onWhatsApp: (p) => setModalContact({ policy: p, type: 'whatsapp' }),
     onEmail: (p) => setModalContact({ policy: p, type: 'email' }),
     onRenew,
+    onOpenPolicyNum: openSummaryByPolizaNum,
     onUpdatePolicy: savePolicy,
   };
 
@@ -5324,6 +5444,8 @@ function App() {
           {page === 'archive' && (
             <ArchivedPoliciesPage
               policies={archivedPolicies.map(p => ({ ...p }))}
+              allActivePolicies={allPolicies}
+              onOpenPolicyNum={openSummaryByPolizaNum}
             />
           )}
           {page === 'caro_policies' && (
@@ -5535,6 +5657,16 @@ function App() {
           policy={renewConfirm}
           onConfirm={doRenewPolicy}
           onClose={() => setRenewConfirm(null)}
+        />
+      )}
+
+      {/* Modal Resumen Global Navegable */}
+      {summaryModalPolicy && (
+        <PolicySummaryModal
+          policy={summaryModalPolicy}
+          allActivePolicies={allPolicies}
+          onOpenPolicyNum={openSummaryByPolizaNum}
+          onClose={() => setSummaryModalPolicy(null)}
         />
       )}
 
