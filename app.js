@@ -1588,6 +1588,20 @@ function PoliciesTable({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onE
 // ─── Página: Dashboard ────────────────────────────────────────
 function DashboardPage({ policies, onMarkPaid, onWhatsApp, onEmail, onEdit, onDelete, onRenew }) {
   const [filterEstatus, setFilterEstatus] = useState('TODOS');
+  const [search, setSearch] = useState('');
+
+  const globalSearchResults = useMemo(() => {
+    if (!search.trim()) return [];
+    const q = search.toLowerCase().trim();
+    return policies.filter(p => 
+      (p.nombre || '').toLowerCase().includes(q) ||
+      (p.poliza || '').toLowerCase().includes(q) ||
+      (p.bien || '').toLowerCase().includes(q) ||
+      (p.perteneceA || '').toLowerCase().includes(q) ||
+      (p.agente || '').toLowerCase().includes(q) ||
+      (p.aseguradora || '').toLowerCase().includes(q)
+    );
+  }, [policies, search]);
 
   const stats = useMemo(() => {
     const total = policies.length;
@@ -1624,105 +1638,92 @@ function DashboardPage({ policies, onMarkPaid, onWhatsApp, onEmail, onEdit, onDe
 
   return (
     <div className="page-fade-enter">
-      {/* KPIs */}
-      <div className="stats-grid">
-        {[
-          { label: 'Total Pólizas', value: stats.total, icon: '🛡️', cls: 'stat-blue', filter: 'TODOS' },
-          { label: 'Pendientes', value: stats.pendientes, icon: '⏳', cls: 'stat-yellow', filter: 'PENDIENTE' },
-          { label: 'Vencidos', value: stats.vencidos, icon: '🔴', cls: 'stat-red', filter: 'VENCIDO' },
-          { label: 'Renovaciones', value: stats.renovaciones, icon: '🔄', cls: 'stat-purple', filter: 'RENOVACIONES' },
-          { label: 'Pagados (ciclo)', value: stats.pagados, icon: '✅', cls: 'stat-green', filter: 'PAGADO' },
-          { label: 'Cancelados', value: stats.cancelados, icon: '❌', cls: 'stat-gray', filter: 'CANCELADO' },
-          { label: 'Cobranza Total', value: formatMoney(stats.montoTotal), icon: '💰', cls: 'stat-orange', filter: 'TODOS' },
-        ].map(s => (
-          <div key={s.label} className={`stat-card ${s.cls}`} 
-            style={{
-              cursor: 'pointer',
-              opacity: filterEstatus === s.filter || filterEstatus === 'TODOS' ? 1 : 0.5,
-              border: filterEstatus === s.filter && s.filter !== 'TODOS' ? '2px solid currentColor' : '1px solid transparent',
-              transition: 'all 0.2s ease'
-            }} 
-            onClick={() => setFilterEstatus(filterEstatus === s.filter ? 'TODOS' : s.filter)}>
-            <div className="stat-card-icon">{s.icon}</div>
-            <div className="stat-card-value">{s.value}</div>
-            <div className="stat-card-label">{s.label}</div>
-          </div>
-        ))}
+      {/* Buscador Global del Dashboard */}
+      <div className="card" style={{marginBottom: 20, padding: '14px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)'}}>
+        <div style={{position: 'relative', display: 'flex', alignItems: 'center'}}>
+          <span style={{position: 'absolute', left: 14, fontSize: 16, color: 'var(--text-muted)'}}>🔍</span>
+          <input
+            type="text"
+            className="input"
+            style={{paddingLeft: 42, paddingRight: search ? 36 : 12, height: 44, fontSize: 14, borderRadius: 'var(--radius-md)', background: 'var(--bg-input)'}}
+            placeholder="🔍 Buscador Global: Escribe el nombre del cliente, número de póliza, aseguradora, vehículo..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              style={{position: 'absolute', right: 12, background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: 'var(--text-muted)'}}
+              title="Limpiar búsqueda"
+            >✕</button>
+          )}
+        </div>
       </div>
 
-      {/* Si hay un filtro seleccionado en el Dashboard, mostrar tabla concentrada filtrada */}
-      {filterEstatus !== 'TODOS' ? (
-        <div className="card" style={{marginTop: 20}}>
-          <div className="card-header">
-            <span className="card-title">📋 Pólizas Concentradas — Estatus: {filterEstatus} ({filteredByStat.length})</span>
-            <button className="btn btn-ghost btn-sm" onClick={() => setFilterEstatus('TODOS')}>↩ Ver Vista General</button>
+      {search.trim() ? (
+        <div className="card">
+          <div className="card-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+            <span className="card-title" style={{color: 'var(--accent-blue)'}}>
+              🔍 Resultados de Búsqueda Global ({globalSearchResults.length})
+            </span>
+            <button className="btn btn-ghost btn-sm" onClick={() => setSearch('')}>↩ Limpiar Búsqueda</button>
           </div>
-          <PoliciesTable
-            policies={filteredByStat}
-            compact={true}
-            showSectionTag={true}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onMarkPaid={onMarkPaid}
-            onWhatsApp={onWhatsApp}
-            onEmail={onEmail}
-          />
+          {globalSearchResults.length > 0 ? (
+            <PoliciesTable
+              policies={globalSearchResults}
+              compact={true}
+              showSectionTag={true}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onMarkPaid={onMarkPaid}
+              onWhatsApp={onWhatsApp}
+              onEmail={onEmail}
+              onRenew={onRenew}
+            />
+          ) : (
+            <div style={{padding: 45, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14}}>
+              No se encontraron pólizas en ningún ramo que coincidan con <strong>"{search}"</strong>.
+            </div>
+          )}
         </div>
       ) : (
         <>
-          {/* Vencidas */}
-          {vencidas.length > 0 && (
-            <div className="card" style={{border: '1px solid rgba(239, 68, 68, 0.3)'}}>
-              <div className="card-header" style={{borderBottom: '1px solid rgba(239, 68, 68, 0.2)'}}>
-                <span className="card-title" style={{color: 'var(--accent-red)'}}>🛑 Pólizas Vencidas — {vencidas.length} póliza(s) con pago atrasado</span>
-                <span style={{fontSize:12, color:'var(--text-muted)'}}>Contacta de inmediato a estos asegurados</span>
+          {/* KPIs */}
+          <div className="stats-grid">
+            {[
+              { label: 'Total Pólizas', value: stats.total, icon: '🛡️', cls: 'stat-blue', filter: 'TODOS' },
+              { label: 'Pendientes', value: stats.pendientes, icon: '⏳', cls: 'stat-yellow', filter: 'PENDIENTE' },
+              { label: 'Vencidos', value: stats.vencidos, icon: '🔴', cls: 'stat-red', filter: 'VENCIDO' },
+              { label: 'Renovaciones', value: stats.renovaciones, icon: '🔄', cls: 'stat-purple', filter: 'RENOVACIONES' },
+              { label: 'Pagados (ciclo)', value: stats.pagados, icon: '✅', cls: 'stat-green', filter: 'PAGADO' },
+              { label: 'Cancelados', value: stats.cancelados, icon: '❌', cls: 'stat-gray', filter: 'CANCELADO' },
+              { label: 'Cobranza Total', value: formatMoney(stats.montoTotal), icon: '💰', cls: 'stat-orange', filter: 'TODOS' },
+            ].map(s => (
+              <div key={s.label} className={`stat-card ${s.cls}`} 
+                style={{
+                  cursor: 'pointer',
+                  opacity: filterEstatus === s.filter || filterEstatus === 'TODOS' ? 1 : 0.5,
+                  border: filterEstatus === s.filter && s.filter !== 'TODOS' ? '2px solid currentColor' : '1px solid transparent',
+                  transition: 'all 0.2s ease'
+                }} 
+                onClick={() => setFilterEstatus(filterEstatus === s.filter ? 'TODOS' : s.filter)}>
+                <div className="stat-card-icon">{s.icon}</div>
+                <div className="stat-card-value">{s.value}</div>
+                <div className="stat-card-label">{s.label}</div>
               </div>
-              <PoliciesTable
-                policies={vencidas}
-                compact={true}
-                showSectionTag={true}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onMarkPaid={onMarkPaid}
-                onWhatsApp={onWhatsApp}
-                onEmail={onEmail}
-              />
-            </div>
-          )}
+            ))}
+          </div>
 
-          {/* Próximas a vencer */}
-          {proximas.length > 0 && (
-            <div className="card">
-              <div className="card-header" style={{background: 'rgba(245, 158, 11, 0.05)', borderBottom: '1px solid rgba(245, 158, 11, 0.2)'}}>
-                <span className="card-title" style={{color: 'var(--accent-yellow)'}}>⚠️ Próximas a vencer (en 4 días o menos)</span>
-                <span style={{fontSize:12, color:'var(--text-muted)'}}>
-                  {proximas.length} póliza(s)
-                </span>
+          {/* Si hay un filtro seleccionado en el Dashboard, mostrar tabla concentrada filtrada */}
+          {filterEstatus !== 'TODOS' ? (
+            <div className="card" style={{marginTop: 20}}>
+              <div className="card-header">
+                <span className="card-title">📋 Pólizas Concentradas — Estatus: {filterEstatus} ({filteredByStat.length})</span>
+                <button className="btn btn-ghost btn-sm" onClick={() => setFilterEstatus('TODOS')}>↩ Ver Vista General</button>
               </div>
               <PoliciesTable
-                policies={proximas}
-                compact={true}
-                showSectionTag={true}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onMarkPaid={onMarkPaid}
-                onWhatsApp={onWhatsApp}
-                onEmail={onEmail}
-              />
-            </div>
-          )}
-
-          {/* Renovaciones */}
-          {renovaciones.length > 0 && (
-            <div className="card">
-              <div className="card-header" style={{background: 'rgba(139, 92, 246, 0.05)', borderBottom: '1px solid rgba(139, 92, 246, 0.2)'}}>
-                <span className="card-title" style={{color: '#8b5cf6'}}>🔄 Próximas a Renovar</span>
-                <span style={{fontSize:12, color:'var(--text-muted)'}}>
-                  {renovaciones.length} póliza(s) (ya liquidadas, vence su ciclo anual en &lt;= 15 días)
-                </span>
-              </div>
-              <PoliciesTable
-                policies={renovaciones}
+                policies={filteredByStat}
                 compact={true}
                 showSectionTag={true}
                 onEdit={onEdit}
@@ -1733,6 +1734,73 @@ function DashboardPage({ policies, onMarkPaid, onWhatsApp, onEmail, onEdit, onDe
                 onRenew={onRenew}
               />
             </div>
+          ) : (
+            <>
+              {/* Vencidas */}
+              {vencidas.length > 0 && (
+                <div className="card" style={{border: '1px solid rgba(239, 68, 68, 0.3)', marginTop: 20}}>
+                  <div className="card-header" style={{borderBottom: '1px solid rgba(239, 68, 68, 0.2)'}}>
+                    <span className="card-title" style={{color: 'var(--accent-red)'}}>🛑 Pólizas Vencidas — {vencidas.length} póliza(s) con pago atrasado</span>
+                    <span style={{fontSize:12, color:'var(--text-muted)'}}>Contacta de inmediato a estos asegurados</span>
+                  </div>
+                  <PoliciesTable
+                    policies={vencidas}
+                    compact={true}
+                    showSectionTag={true}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onMarkPaid={onMarkPaid}
+                    onWhatsApp={onWhatsApp}
+                    onEmail={onEmail}
+                  />
+                </div>
+              )}
+
+              {/* Próximas a vencer */}
+              {proximas.length > 0 && (
+                <div className="card" style={{marginTop: 20}}>
+                  <div className="card-header" style={{background: 'rgba(245, 158, 11, 0.05)', borderBottom: '1px solid rgba(245, 158, 11, 0.2)'}}>
+                    <span className="card-title" style={{color: 'var(--accent-yellow)'}}>⚠️ Próximas a vencer (en 4 días o menos)</span>
+                    <span style={{fontSize:12, color:'var(--text-muted)'}}>
+                      {proximas.length} póliza(s)
+                    </span>
+                  </div>
+                  <PoliciesTable
+                    policies={proximas}
+                    compact={true}
+                    showSectionTag={true}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onMarkPaid={onMarkPaid}
+                    onWhatsApp={onWhatsApp}
+                    onEmail={onEmail}
+                  />
+                </div>
+              )}
+
+              {/* Renovaciones */}
+              {renovaciones.length > 0 && (
+                <div className="card" style={{marginTop: 20}}>
+                  <div className="card-header" style={{background: 'rgba(139, 92, 246, 0.05)', borderBottom: '1px solid rgba(139, 92, 246, 0.2)'}}>
+                    <span className="card-title" style={{color: '#8b5cf6'}}>🔄 Próximas a Renovar</span>
+                    <span style={{fontSize:12, color:'var(--text-muted)'}}>
+                      {renovaciones.length} póliza(s) (ya liquidadas, vence su ciclo anual en &lt;= 15 días)
+                    </span>
+                  </div>
+                  <PoliciesTable
+                    policies={renovaciones}
+                    compact={true}
+                    showSectionTag={true}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onMarkPaid={onMarkPaid}
+                    onWhatsApp={onWhatsApp}
+                    onEmail={onEmail}
+                    onRenew={onRenew}
+                  />
+                </div>
+              )}
+            </>
           )}
         </>
       )}
