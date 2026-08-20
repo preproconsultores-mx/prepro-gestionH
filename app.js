@@ -1646,7 +1646,7 @@ function DashboardPage({ policies, onMarkPaid, onWhatsApp, onEmail, onEdit, onDe
             type="text"
             className="input"
             style={{paddingLeft: 42, paddingRight: search ? 36 : 12, height: 44, fontSize: 14, borderRadius: 'var(--radius-md)', background: 'var(--bg-input)'}}
-            placeholder="🔍 Buscador Global: Escribe el nombre del cliente, número de póliza, aseguradora, vehículo..."
+            placeholder="Buscador Global: cliente, número de póliza, aseguradora, vehículo..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />

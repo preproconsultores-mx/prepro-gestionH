@@ -1269,14 +1269,23 @@ tbody tr.selected-row {
   .sidebar { transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); }
   .main-content { margin-left: 0; }
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .page-content { padding: 20px 16px; }
-  .topbar { padding: 0 16px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .page-content { padding: 16px 12px; }
+  .topbar { padding: 0 14px; }
 }
 
 @media (max-width: 540px) {
-  .stats-grid { grid-template-columns: 1fr; }
-  .form-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat-card { padding: 12px 14px; border-radius: var(--radius-lg); }
+  .stat-card-icon { font-size: 20px; width: 34px; height: 34px; margin-bottom: 8px; }
+  .stat-card-value { font-size: 20px; }
+  .stat-card-label { font-size: 10px; letter-spacing: 0.3px; }
+  .form-grid { grid-template-columns: 1fr; gap: 12px; }
+  .modal-overlay { padding: 10px; }
+  .modal { max-height: 88vh; border-radius: var(--radius-lg); }
+  .modal-header { padding: 14px 16px; }
+  .modal-body { padding: 14px 16px; gap: 8px; }
+  .modal-footer { padding: 10px 16px; }
 }
 
 /* ── Highlight search ── */
