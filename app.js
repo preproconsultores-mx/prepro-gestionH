@@ -1640,12 +1640,12 @@ function DashboardPage({ policies, onMarkPaid, onWhatsApp, onEmail, onEdit, onDe
     <div className="page-fade-enter">
       {/* Buscador Global del Dashboard */}
       <div className="card" style={{marginBottom: 20, padding: '14px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)'}}>
-        <div style={{position: 'relative', display: 'flex', alignItems: 'center'}}>
-          <span style={{position: 'absolute', left: 14, fontSize: 16, color: 'var(--text-muted)'}}>🔍</span>
+        <div className="search-wrapper">
+          <Icons.Search />
           <input
             type="text"
-            className="input"
-            style={{paddingLeft: 42, paddingRight: search ? 36 : 12, height: 44, fontSize: 14, borderRadius: 'var(--radius-md)', background: 'var(--bg-input)'}}
+            className="input input-search"
+            style={{width: '100%', height: 44, fontSize: 14, borderRadius: 'var(--radius-md)', background: 'var(--bg-input)', paddingRight: search ? 36 : 12}}
             placeholder="Buscador Global: cliente, número de póliza, aseguradora, vehículo..."
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -1654,7 +1654,7 @@ function DashboardPage({ policies, onMarkPaid, onWhatsApp, onEmail, onEdit, onDe
             <button
               type="button"
               onClick={() => setSearch('')}
-              style={{position: 'absolute', right: 12, background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: 'var(--text-muted)'}}
+              style={{position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: 'var(--text-muted)'}}
               title="Limpiar búsqueda"
             >✕</button>
           )}
@@ -4504,6 +4504,7 @@ function SiniestroMessageModal({ siniestro, onClose }) {
 // ─── App Principal ────────────────────────────────────────────
 function App() {
   const [page, setPage] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [defaultEstatus, setDefaultEstatus] = useState('TODOS');
   const [policies, setPolicies] = useState(() => {
     try {
@@ -5421,10 +5422,19 @@ function App() {
 
   return (
     <div className="app-layout">
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+
       {/* Sidebar */}
-      <aside className="sidebar">
-        <div className="sidebar-logo" style={{ padding: '24px 20px', textAlign: 'center' }}>
-          <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'stretch', margin: '0 auto' }}>
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+        <div className="sidebar-logo" style={{ padding: '20px 18px', position: 'relative' }}>
+          <button 
+            className="mobile-sidebar-close" 
+            onClick={() => setSidebarOpen(false)}
+            title="Cerrar menú"
+            style={{ position: 'absolute', right: 12, top: 12 }}
+          >✕</button>
+          <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'stretch', margin: '0 auto', textAlign: 'center', width: '100%' }}>
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', fontSize: '28px', fontWeight: '800', lineHeight: 1, fontFamily: 'Times New Roman, serif', letterSpacing: '-0.5px' }}>
               <span style={{ color: '#1771c5' }}>PRE</span>
               <span style={{ color: '#111111', margin: '0 2px' }}>&amp;</span>
@@ -5435,12 +5445,15 @@ function App() {
               C O N S U L T O R E S
             </div>
           </div>
-          <span style={{ display: 'block', marginTop: '16px', fontSize: '11px', color: 'var(--text-muted)' }}>Sistema de Cobranza Interna</span>
+          <span style={{ display: 'block', marginTop: '14px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>Sistema de Cobranza Interna</span>
         </div>
         <nav className="sidebar-nav">
           {navItems.map(({ id, label, Icon, badge }) => (
             <button key={id} className={`nav-item ${page === id ? 'active' : ''}`}
-              onClick={() => setPage(id)}>
+              onClick={() => {
+                setPage(id);
+                setSidebarOpen(false);
+              }}>
               <Icon />
               {label}
               {badge && <span className="nav-badge">{badge}</span>}
@@ -5477,7 +5490,20 @@ function App() {
       {/* Main */}
       <div className="main-content">
         <header className="topbar">
-          <h2 className="topbar-title">{pageTitles[page]}</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button 
+              className="mobile-menu-toggle"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              title="Abrir Menú de Navegación"
+            >
+              <svg viewBox="0 0 24 24" width="22" height="22" stroke="#0f172a" strokeWidth="2.5" fill="none" strokeLinecap="round">
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="18" x2="21" y2="18"/>
+              </svg>
+            </button>
+            <h2 className="topbar-title">{pageTitles[page]}</h2>
+          </div>
           <div className="topbar-actions">
             <div 
               style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer', background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '6px 14px', borderRadius: 20, gap: 6 }} 
