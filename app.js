@@ -366,8 +366,8 @@ function PolicySummaryModal({ policy: p, onClose, onOpenPolicyNum, allActivePoli
 
   return (
     <div className="modal-overlay" onClick={onClose} style={{zIndex: 999999}}>
-      <div className="modal" style={{maxWidth: 440, padding: 0, overflow: 'hidden'}} onClick={e => e.stopPropagation()}>
-        <div className="modal-header" style={{background: 'var(--bg-secondary)', padding: '16px 20px', borderBottom: '1px solid var(--border)'}}>
+      <div className="modal" style={{maxWidth: 440, padding: 0, maxHeight: '85vh', display: 'flex', flexDirection: 'column'}} onClick={e => e.stopPropagation()}>
+        <div className="modal-header" style={{background: 'var(--bg-secondary)', padding: '16px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0}}>
           <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
             <span style={{fontSize: 20}}>📄</span>
             <div>
@@ -377,7 +377,7 @@ function PolicySummaryModal({ policy: p, onClose, onOpenPolicyNum, allActivePoli
           </div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
-        <div className="modal-body" style={{padding: 20, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13}}>
+        <div className="modal-body" style={{padding: 20, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13, overflowY: 'auto', flex: 1}}>
           <div style={{display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 6}}>
             <span style={{color: 'var(--text-muted)'}}>Asegurado:</span>
             <strong style={{color: 'var(--text-primary)', textAlign: 'right'}}>{p.nombre}</strong>
@@ -468,7 +468,7 @@ function PolicySummaryModal({ policy: p, onClose, onOpenPolicyNum, allActivePoli
             </div>
           )}
         </div>
-        <div className="modal-footer" style={{background: 'var(--bg-secondary)', padding: '12px 20px', display: 'flex', justifyContent: 'flex-end'}}>
+        <div className="modal-footer" style={{background: 'var(--bg-secondary)', padding: '12px 20px', display: 'flex', justifyContent: 'flex-end', flexShrink: 0}}>
           <button className="btn btn-primary btn-sm" onClick={onClose}>Entendido</button>
         </div>
       </div>
