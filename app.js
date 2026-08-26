@@ -716,7 +716,6 @@ function fillTemplate(tpl, policy, isWA = false) {
     .replace(/{correo}/g, policy.correo || '')
     .replace(/{telefono}/g, policy.telefono || '');
 }
-
 // ─── Field wrapper (fuera del modal para evitar re-montar inputs) ───
 function FieldGroup({ label, id, required, error, children }) {
   return (
@@ -794,6 +793,7 @@ function PolicyModal({ policy, onSave, onClose, toast, agentOptions, isGmm = fal
       ...((isAutos || isGmm || isVida || isDanos || isHogar) && form.agente === 'OTRO' && form.agenteCustom ? { agente: form.agenteCustom } : {}),
       ...((isAutos || isGmm || isVida || isDanos || isHogar) && form.aseguradora === 'OTRO' && form.aseguradoraCustom ? { aseguradora: form.aseguradoraCustom } : {})
     };
+
     onSave(saved);
     toast(isEdit ? 'Póliza actualizada ✅' : 'Póliza registrada ✅', 'success');
     onClose();
@@ -1539,7 +1539,10 @@ function PoliciesTable({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onE
               <td><AgentBadge policy={p} agente={p.agente || p.aseguradora} /></td>
               {showSectionTag && <td><RamoBadge policy={p} /></td>}
               <td><span className="forma-badge">{p.formaPago}</span></td>
-              <td><DateCell dateStr={p.fechaPago} estatus={p.estatus} periodoGracia={p.periodoGracia} renewalDateStr={p.estatus === 'LIQUIDADO' ? getRenewalDate(p) : null} /></td>
+              <td>
+                <DateCell dateStr={p.fechaPago} estatus={p.estatus} periodoGracia={p.periodoGracia} renewalDateStr={p.estatus === 'LIQUIDADO' ? getRenewalDate(p) : null} />
+              </td>
+
               <td><span style={{fontWeight:600}}>{formatMoney(getEffectiveMonto(p))}</span></td>
               <td><StatusBadge policy={p} /></td>
               <td>
@@ -4618,6 +4621,12 @@ function App() {
 
   const applyCloudData = useCallback((data) => {
     if (!data) return;
+    // Check if it's a valid payload (prevent wiping data if a network proxy returns a JSON error)
+    if (data.error || (!data.policies && !data.caroPolicies && !data.gmmPolicies)) {
+      console.warn('Payload inválido de la nube, ignorando:', data);
+      return;
+    }
+    
     setDbConnected(true);
 
     const pList = parseList(data.policies);
@@ -5268,6 +5277,7 @@ function App() {
       return next;
     });
   }, []);
+
 
   const vidaUrgentCount = useMemo(() => vidaPolicies.filter(p => isUpcomingReminder(p) || isExpiredEffective(p)).length, [vidaPolicies]);
   const danosUrgentCount = useMemo(() => danosPolicies.filter(p => isUpcomingReminder(p) || isExpiredEffective(p)).length, [danosPolicies]);
