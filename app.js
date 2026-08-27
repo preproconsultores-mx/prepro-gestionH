@@ -91,11 +91,10 @@ const isExpiredEffective = (p) => {
 // Si está dentro de los 4 días antes de su fechaPago original o periodo de gracia (para recordatorio)
 const isUpcomingReminder = (p) => {
   if (p.estatus === 'PAGADO' || p.estatus === 'CANCELADO' || p.estatus === 'LIQUIDADO') return false;
-  if (isExpiredEffective(p)) return false; // ya venció
-  const validGracia = (p.periodoGracia && p.periodoGracia >= p.fechaPago) ? p.periodoGracia : null;
-  const targetDate = validGracia || p.fechaPago;
-  const d = daysUntil(targetDate);
-  return d !== null && d >= 0 && d <= 4;
+  if (isExpiredEffective(p)) return false; // ya venció según gracia
+  
+  const d = daysUntil(p.fechaPago);
+  return d !== null && d <= 4;
 };
 
 // Si está liquidada y se acerca su fecha de renovación (<= 15 días)
