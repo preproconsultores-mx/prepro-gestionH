@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>PRE & PRO CONSULTORES – Gestión de Cobranza</title>
+  <meta name="description" content="Sistema de gestión y automatización de cobranza de pólizas de seguros - PRE & PRO CONSULTORES" />
+  
+  <!-- Anti-cache headers for GitHub Pages -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
+  <!-- PWA & Mobile Web App Settings -->
+  <link rel="manifest" href="/manifest.json?v=50.0" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="PRE & PRO" />
+  <link rel="icon" type="image/png" href="/icon-192.png?v=50.0" />
+  <link rel="shortcut icon" type="image/png" href="/icon-192.png?v=50.0" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=50.0" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script type="module" crossorigin src="/assets/index-B-wfVyeR.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-RAiwouCp.css">
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- SheetJS for Excel import/export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- Firebase Realtime Database SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBaR_PGMfnGoo9KpnXeROoUhNyxFWf1S-Q",
+      authDomain: "pre-pro-consultores-gestion.firebaseapp.com",
+      databaseURL: "https://pre-pro-consultores-gestion-default-rtdb.firebaseio.com",
+      projectId: "pre-pro-consultores-gestion",
+      storageBucket: "pre-pro-consultores-gestion.firebasestorage.app",
+      messagingSenderId: "1063588415672",
+      appId: "1:1063588415672:web:f09bed491544fe5b900c4d",
+      measurementId: "G-XJLVSK871H"
+    };
+    if (typeof firebase !== 'undefined') {
+      firebase.initializeApp(firebaseConfig);
+      window.db = firebase.database();
+    }
+  </script>
+
+</body>
+</html>
