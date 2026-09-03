@@ -5368,7 +5368,7 @@ function App() {
     { id: 'vida_policies', label: 'Vida', Icon: Icons.Heart, badge: vidaUrgentCount > 0 ? vidaUrgentCount : null },
     { id: 'danos_policies', label: 'Daños', Icon: Icons.Briefcase, badge: danosUrgentCount > 0 ? danosUrgentCount : null },
     { id: 'hogar_policies', label: 'Hogar', Icon: Icons.Home, badge: hogarUrgentCount > 0 ? hogarUrgentCount : null },
-    { id: 'archive', label: '📦 Histórico', Icon: Icons.Import, badge: archivedPolicies.length > 0 ? archivedPolicies.length : null },
+    { id: 'archive', label: '📦 Histórico', Icon: Icons.Import },
     { id: 'templates', label: 'Plantillas', Icon: Icons.Templates },
     { id: 'import', label: 'Importar / Exportar', Icon: Icons.Import },
   ];
