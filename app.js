@@ -4678,8 +4678,6 @@ function App() {
 
   const syncCategoryToCloud = useCallback((category, list) => {
     const cleanList = list || [];
-    // Marcar que hay cambios locales pendientes con timestamp
-    localStorage.setItem('sc_last_local_change', Date.now().toString());
     // 1. Firebase Realtime SDK update
     if (window.db) {
       try { window.db.ref(`app_data/${category}`).set(cleanList); } catch(e) {}
@@ -4689,81 +4687,32 @@ function App() {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(cleanList)
-    }).then(() => {
-      // Confirmar que los cambios locales ya están en la nube
-      localStorage.setItem('sc_last_cloud_sync', Date.now().toString());
     }).catch(err => console.error('Cloud REST PUT error:', err));
   }, []);
 
-  // ☁️ Sincronización Híbrida con protección de cambios offline
+  // ☁️ Sincronización Híbrida en tiempo real (REST + WebSockets) con Firebase
   useEffect(() => {
-    // Verificar si hay cambios locales que no se han subido a la nube
-    const lastLocalChange = parseInt(localStorage.getItem('sc_last_local_change') || '0');
-    const lastCloudSync = parseInt(localStorage.getItem('sc_last_cloud_sync') || '0');
-    const hasPendingLocalChanges = lastLocalChange > lastCloudSync;
+    // 1. Carga REST Inmediata (funciona en TODOS los perfiles de Chrome, teléfonos e Incógnito)
+    fetch(`${FIREBASE_REST_URL}.json`)
+      .then(res => res.json())
+      .then(data => {
+        if (data) applyCloudData(data);
+      })
+      .catch(err => console.error('Cloud REST GET error:', err));
 
-    if (!window.db) {
-      // Sin SDK de Firebase: usar REST como respaldo (solo si no hay cambios pendientes)
-      if (!hasPendingLocalChanges) {
-        fetch(`${FIREBASE_REST_URL}.json`)
-          .then(res => res.json())
-          .then(data => { if (data) applyCloudData(data); })
-          .catch(err => console.error('Cloud REST GET error:', err));
-      }
-      return;
-    }
+    // 2. Escuchador Realtime WebSocket (para cambios en vivo instantáneos)
+    if (!window.db) return;
 
     const connectedRef = window.db.ref('.info/connected');
-    let initialLoadDone = false;
-
     const onConnected = (snap) => {
-      if (snap.val() === true) {
-        setDbConnected(true);
-        if (!initialLoadDone) {
-          initialLoadDone = true;
-          if (hasPendingLocalChanges) {
-            // Hay cambios offline pendientes: subir primero, luego la nube se actualiza sola via WebSocket
-            console.log('Cambios offline detectados, subiendo a la nube primero...');
-            const payload = {
-              policies: JSON.parse(localStorage.getItem('sc_policies') || '[]'),
-              caroPolicies: JSON.parse(localStorage.getItem('sc_caro_policies') || '[]'),
-              gmmPolicies: JSON.parse(localStorage.getItem('sc_gmm_policies') || '[]'),
-              autosPolicies: JSON.parse(localStorage.getItem('sc_autos_policies') || '[]'),
-              vidaPolicies: JSON.parse(localStorage.getItem('sc_vida_policies') || '[]'),
-              danosPolicies: JSON.parse(localStorage.getItem('sc_danos_policies') || '[]'),
-              hogarPolicies: JSON.parse(localStorage.getItem('sc_hogar_policies') || '[]'),
-              siniestros: JSON.parse(localStorage.getItem('sc_siniestros') || '[]'),
-              cotizaciones: JSON.parse(localStorage.getItem('sc_cotizaciones') || '[]'),
-              archivedPolicies: JSON.parse(localStorage.getItem('sc_archived_policies') || '[]'),
-              templates: JSON.parse(localStorage.getItem('sc_templates') || 'null'),
-            };
-            fetch(`${FIREBASE_REST_URL}.json`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            }).then(() => {
-              localStorage.setItem('sc_last_cloud_sync', Date.now().toString());
-              console.log('Cambios offline subidos exitosamente.');
-            }).catch(err => console.error('Error subiendo cambios offline:', err));
-          } else {
-            // No hay cambios pendientes: descargar de la nube normalmente
-            fetch(`${FIREBASE_REST_URL}.json`)
-              .then(res => res.json())
-              .then(data => { if (data) applyCloudData(data); })
-              .catch(err => console.error('Cloud REST GET error:', err));
-          }
-        }
-      }
+      if (snap.val() === true) setDbConnected(true);
     };
     connectedRef.on('value', onConnected);
 
     const dbRef = window.db.ref('app_data');
     const handleValue = (snapshot) => {
       const data = snapshot.val();
-      // Solo aplicar datos de la nube si no hay cambios locales pendientes
-      const localChange = parseInt(localStorage.getItem('sc_last_local_change') || '0');
-      const cloudSync = parseInt(localStorage.getItem('sc_last_cloud_sync') || '0');
-      if (data && localChange <= cloudSync) applyCloudData(data);
+      if (data) applyCloudData(data);
     };
     dbRef.on('value', handleValue);
 
@@ -4827,7 +4776,6 @@ function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     }).then(() => {
-      localStorage.setItem('sc_last_cloud_sync', Date.now().toString());
       toast('¡Datos subidos a la Nube con éxito! ☁️✅', 'success');
     }).catch(err => {
       toast('Error al subir a la nube: ' + err.message, 'error');
@@ -5575,11 +5523,7 @@ function App() {
                 📅 {new Date().toLocaleDateString('es-MX', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })}
               </span>
             </div>
-            {page === 'policies' && (
-              <button className="btn btn-primary btn-sm" onClick={() => setModalNew(true)}>
-                <Icons.Plus /> Nueva Póliza
-              </button>
-            )}
+
           </div>
         </header>
 
