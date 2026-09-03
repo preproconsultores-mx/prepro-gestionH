@@ -4692,20 +4692,32 @@ function App() {
 
   // ☁️ Sincronización Híbrida en tiempo real (REST + WebSockets) con Firebase
   useEffect(() => {
-    // 1. Carga REST Inmediata (funciona en TODOS los perfiles de Chrome, teléfonos e Incógnito)
-    fetch(`${FIREBASE_REST_URL}.json`)
-      .then(res => res.json())
-      .then(data => {
-        if (data) applyCloudData(data);
-      })
-      .catch(err => console.error('Cloud REST GET error:', err));
+    if (!window.db) {
+      // Sin SDK de Firebase: usar REST como respaldo
+      fetch(`${FIREBASE_REST_URL}.json`)
+        .then(res => res.json())
+        .then(data => { if (data) applyCloudData(data); })
+        .catch(err => console.error('Cloud REST GET error:', err));
+      return;
+    }
 
-    // 2. Escuchador Realtime WebSocket (para cambios en vivo instantáneos)
-    if (!window.db) return;
-
+    // Con SDK: usar WebSocket exclusivamente (soporta offline automático)
     const connectedRef = window.db.ref('.info/connected');
+    let initialLoadDone = false;
+
     const onConnected = (snap) => {
-      if (snap.val() === true) setDbConnected(true);
+      if (snap.val() === true) {
+        setDbConnected(true);
+        // Solo hacer el REST GET la primera vez que conecta (para carga rápida inicial)
+        // Después de eso, el WebSocket ya se encarga de los cambios en vivo
+        if (!initialLoadDone) {
+          initialLoadDone = true;
+          fetch(`${FIREBASE_REST_URL}.json`)
+            .then(res => res.json())
+            .then(data => { if (data) applyCloudData(data); })
+            .catch(err => console.error('Cloud REST GET error:', err));
+        }
+      }
     };
     connectedRef.on('value', onConnected);
 
