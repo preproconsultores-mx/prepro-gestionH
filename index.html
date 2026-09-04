@@ -12,29 +12,25 @@
   <meta http-equiv="Expires" content="0" />
 
   <!-- PWA & Mobile Web App Settings -->
-  <link rel="manifest" href="manifest.json?v=49.0" />
+  <link rel="manifest" href="/manifest.json?v=50.0" />
   <meta name="theme-color" content="#0f172a" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="PRE & PRO" />
-  <link rel="icon" type="image/png" href="icon-192.png?v=49.0" />
-  <link rel="shortcut icon" type="image/png" href="icon-192.png?v=49.0" />
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=49.0" />
+  <link rel="icon" type="image/png" href="/icon-192.png?v=50.0" />
+  <link rel="shortcut icon" type="image/png" href="/icon-192.png?v=50.0" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=50.0" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=50.0" />
+  <script type="module" crossorigin src="/prepro-gestionH/assets/index-Cv2shQCk.js"></script>
+  <link rel="stylesheet" crossorigin href="/prepro-gestionH/assets/index-RAiwouCp.css">
 </head>
 <body>
   <div id="root"></div>
 
-  <!-- React + ReactDOM from CDN -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <!-- Babel standalone for JSX transformation -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <!-- SheetJS for Excel import/export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -55,46 +51,8 @@
     if (typeof firebase !== 'undefined') {
       firebase.initializeApp(firebaseConfig);
       window.db = firebase.database();
-      // Activar persistencia offline: las escrituras se encolan y se mandan solas al recuperar señal
-      window.db.ref('app_data').keepSynced(true);
     }
   </script>
 
-  <script type="text/babel" src="app.js?v=51.0"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
