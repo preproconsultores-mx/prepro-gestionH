@@ -44,6 +44,11 @@ const findCol = (row, fragments) => {
   return undefined;
 };
 
+// Wrapper silencioso para localStorage - nunca muestra popups de error
+function safeStorageSet(key, value) {
+  try { localStorage.setItem(key, value); } catch(e) { console.warn('Storage lleno, ignorando:', e); }
+}
+
 const parseMonto = (val) => {
   if (val === undefined || val === null || val === '') return 0;
   if (typeof val === 'number') return val;
@@ -1066,15 +1071,6 @@ function MarkPaidModal({ policy, onConfirm, onClose, toast }) {
             </div>
           )}
 
-          <div style={{marginTop: 16}}>
-            <label className="form-label" style={{display:'block', marginBottom:8}}>Comprobante de pago (Opcional)</label>
-            <input type="file" accept="image/*,.pdf" className="input" onChange={handleFileChange} />
-            {comprobante && (
-              <div style={{marginTop: 8, fontSize: 12, color: 'var(--accent-green)'}}>
-                ✅ Archivo adjunto listo para guardar
-              </div>
-            )}
-          </div>
         </div>
         <div className="modal-footer">
           <button className="btn btn-outline" onClick={onClose}>Cancelar</button>
@@ -4529,7 +4525,7 @@ function App() {
       // Limpiar datos de ejemplo
       const filtered = parsed.filter(s => s.poliza !== 'POL-123' || s.asegurado !== 'Ejemplo Asegurado');
       if (filtered.length !== parsed.length) {
-        localStorage.setItem('sc_siniestros', JSON.stringify(filtered));
+        safeStorageSet('sc_siniestros', JSON.stringify(filtered));
       }
       return filtered;
     } catch { return []; }
@@ -4609,7 +4605,33 @@ function App() {
   });
 
   const [dbConnected, setDbConnected] = useState(false);
-  const FIREBASE_REST_URL = 'https://pre-pro-consultores-gestion-default-rtdb.firebaseio.com/app_data';
+  // safeStorageSet is defined globally below
+
+
+const FIREBASE_REST_URL = 'https://pre-pro-consultores-gestion-default-rtdb.firebaseio.com/app_data';
+
+// 🧹 Limpieza única: eliminar comprobantes (PDFs) guardados en la memoria del navegador
+(function cleanOldComprobantes() {
+  const keys = [
+    'sc_policies','sc_caro_policies','sc_gmm_policies','sc_autos_policies',
+    'sc_vida_policies','sc_danos_policies','sc_hogar_policies','sc_archived_policies'
+  ];
+  keys.forEach(key => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const list = JSON.parse(raw);
+      if (!Array.isArray(list)) return;
+      const cleaned = list.map(p => {
+        if (!p.comprobante) return p;
+        const { comprobante, ...rest } = p;
+        return rest;
+      });
+      localStorage.setItem(key, JSON.stringify(cleaned));
+    } catch(e) {}
+  });
+})();
+
 
   const parseList = (node) => {
     if (!node) return [];
@@ -4630,49 +4652,49 @@ function App() {
 
     const pList = parseList(data.policies);
     setPolicies(pList);
-    localStorage.setItem('sc_policies', JSON.stringify(pList));
+    safeStorageSet('sc_policies', JSON.stringify(pList));
 
     const cList = parseList(data.caroPolicies);
     setCaroPolicies(cList);
-    localStorage.setItem('sc_caro_policies', JSON.stringify(cList));
+    safeStorageSet('sc_caro_policies', JSON.stringify(cList));
 
     const gList = parseList(data.gmmPolicies);
     setGmmPolicies(gList);
-    localStorage.setItem('sc_gmm_policies', JSON.stringify(gList));
+    safeStorageSet('sc_gmm_policies', JSON.stringify(gList));
 
     const aList = parseList(data.autosPolicies);
     setAutosPolicies(aList);
-    localStorage.setItem('sc_autos_policies', JSON.stringify(aList));
+    safeStorageSet('sc_autos_policies', JSON.stringify(aList));
 
     const vList = parseList(data.vidaPolicies);
     setVidaPolicies(vList);
-    localStorage.setItem('sc_vida_policies', JSON.stringify(vList));
+    safeStorageSet('sc_vida_policies', JSON.stringify(vList));
 
     const dList = parseList(data.danosPolicies);
     setDanosPolicies(dList);
-    localStorage.setItem('sc_danos_policies', JSON.stringify(dList));
+    safeStorageSet('sc_danos_policies', JSON.stringify(dList));
 
     const hList = parseList(data.hogarPolicies);
     setHogarPolicies(hList);
-    localStorage.setItem('sc_hogar_policies', JSON.stringify(hList));
+    safeStorageSet('sc_hogar_policies', JSON.stringify(hList));
 
     const sList = parseList(data.siniestros);
     setSiniestros(sList);
-    localStorage.setItem('sc_siniestros', JSON.stringify(sList));
+    safeStorageSet('sc_siniestros', JSON.stringify(sList));
 
     const cotList = parseList(data.cotizaciones);
     setCotizaciones(cotList);
-    localStorage.setItem('sc_cotizaciones', JSON.stringify(cotList));
+    safeStorageSet('sc_cotizaciones', JSON.stringify(cotList));
 
     if (data.archivedPolicies) {
       const archList = parseList(data.archivedPolicies);
       setArchivedPolicies(archList);
-      localStorage.setItem('sc_archived_policies', JSON.stringify(archList));
+      safeStorageSet('sc_archived_policies', JSON.stringify(archList));
     }
 
     if (data.templates) {
       setTemplates(data.templates);
-      localStorage.setItem('sc_templates', JSON.stringify(data.templates));
+      safeStorageSet('sc_templates', JSON.stringify(data.templates));
     }
   }, []);
 
@@ -4783,17 +4805,17 @@ function App() {
   }, [toast]);
 
   // Guardar en localStorage cuando el usuario modifica los datos
-  useEffect(() => { localStorage.setItem('sc_policies', JSON.stringify(policies)); }, [policies]);
-  useEffect(() => { localStorage.setItem('sc_caro_policies', JSON.stringify(caroPolicies)); }, [caroPolicies]);
-  useEffect(() => { localStorage.setItem('sc_gmm_policies', JSON.stringify(gmmPolicies)); }, [gmmPolicies]);
-  useEffect(() => { localStorage.setItem('sc_autos_policies', JSON.stringify(autosPolicies)); }, [autosPolicies]);
-  useEffect(() => { localStorage.setItem('sc_vida_policies', JSON.stringify(vidaPolicies)); }, [vidaPolicies]);
-  useEffect(() => { localStorage.setItem('sc_danos_policies', JSON.stringify(danosPolicies)); }, [danosPolicies]);
-  useEffect(() => { localStorage.setItem('sc_hogar_policies', JSON.stringify(hogarPolicies)); }, [hogarPolicies]);
-  useEffect(() => { localStorage.setItem('sc_siniestros', JSON.stringify(siniestros)); }, [siniestros]);
-  useEffect(() => { localStorage.setItem('sc_cotizaciones', JSON.stringify(cotizaciones)); }, [cotizaciones]);
-  useEffect(() => { localStorage.setItem('sc_templates', JSON.stringify(templates)); }, [templates]);
-  useEffect(() => { localStorage.setItem('sc_archived_policies', JSON.stringify(archivedPolicies)); }, [archivedPolicies]);
+  useEffect(() => { safeStorageSet('sc_policies', JSON.stringify(policies)); }, [policies]);
+  useEffect(() => { safeStorageSet('sc_caro_policies', JSON.stringify(caroPolicies)); }, [caroPolicies]);
+  useEffect(() => { safeStorageSet('sc_gmm_policies', JSON.stringify(gmmPolicies)); }, [gmmPolicies]);
+  useEffect(() => { safeStorageSet('sc_autos_policies', JSON.stringify(autosPolicies)); }, [autosPolicies]);
+  useEffect(() => { safeStorageSet('sc_vida_policies', JSON.stringify(vidaPolicies)); }, [vidaPolicies]);
+  useEffect(() => { safeStorageSet('sc_danos_policies', JSON.stringify(danosPolicies)); }, [danosPolicies]);
+  useEffect(() => { safeStorageSet('sc_hogar_policies', JSON.stringify(hogarPolicies)); }, [hogarPolicies]);
+  useEffect(() => { safeStorageSet('sc_siniestros', JSON.stringify(siniestros)); }, [siniestros]);
+  useEffect(() => { safeStorageSet('sc_cotizaciones', JSON.stringify(cotizaciones)); }, [cotizaciones]);
+  useEffect(() => { safeStorageSet('sc_templates', JSON.stringify(templates)); }, [templates]);
+  useEffect(() => { safeStorageSet('sc_archived_policies', JSON.stringify(archivedPolicies)); }, [archivedPolicies]);
 
   const urgentCount = useMemo(() => policies.filter(p => {
     if (p.estatus === 'PAGADO' || p.estatus === 'CANCELADO' || p.estatus === 'LIQUIDADO') return false;
@@ -4827,7 +4849,7 @@ function App() {
         return arch;
       });
       if (changed) {
-        localStorage.setItem('sc_archived_policies', JSON.stringify(next));
+        safeStorageSet('sc_archived_policies', JSON.stringify(next));
         setTimeout(() => syncCategoryToCloud('archivedPolicies', next), 0);
       }
       return changed ? next : prev;
@@ -4840,7 +4862,7 @@ function App() {
     setPolicies(prev => {
       const exists = prev.find(x => x.id === policyToSave.id);
       const next = exists ? prev.map(x => x.id === policyToSave.id ? policyToSave : x) : [...prev, policyToSave];
-      localStorage.setItem('sc_policies', JSON.stringify(next));
+      safeStorageSet('sc_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('policies', next), 0);
       return next;
     });
@@ -4852,43 +4874,43 @@ function App() {
   const purgePolicyFromAllCategories = useCallback((id) => {
     setPolicies(prev => {
       const next = prev.filter(p => p.id !== id);
-      localStorage.setItem('sc_policies', JSON.stringify(next));
+      safeStorageSet('sc_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('policies', next), 0);
       return next;
     });
     setCaroPolicies(prev => {
       const next = prev.filter(p => p.id !== id);
-      localStorage.setItem('sc_caro_policies', JSON.stringify(next));
+      safeStorageSet('sc_caro_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('caroPolicies', next), 0);
       return next;
     });
     setGmmPolicies(prev => {
       const next = prev.filter(p => p.id !== id);
-      localStorage.setItem('sc_gmm_policies', JSON.stringify(next));
+      safeStorageSet('sc_gmm_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('gmmPolicies', next), 0);
       return next;
     });
     setAutosPolicies(prev => {
       const next = prev.filter(p => p.id !== id);
-      localStorage.setItem('sc_autos_policies', JSON.stringify(next));
+      safeStorageSet('sc_autos_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('autosPolicies', next), 0);
       return next;
     });
     setVidaPolicies(prev => {
       const next = prev.filter(p => p.id !== id);
-      localStorage.setItem('sc_vida_policies', JSON.stringify(next));
+      safeStorageSet('sc_vida_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('vidaPolicies', next), 0);
       return next;
     });
     setDanosPolicies(prev => {
       const next = prev.filter(p => p.id !== id);
-      localStorage.setItem('sc_danos_policies', JSON.stringify(next));
+      safeStorageSet('sc_danos_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('danosPolicies', next), 0);
       return next;
     });
     setHogarPolicies(prev => {
       const next = prev.filter(p => p.id !== id);
-      localStorage.setItem('sc_hogar_policies', JSON.stringify(next));
+      safeStorageSet('sc_hogar_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('hogarPolicies', next), 0);
       return next;
     });
@@ -4919,7 +4941,7 @@ function App() {
         }
         return { ...basePolicy, estatus: 'PENDIENTE', fechaPago: nextDate || p.fechaPago };
       });
-      localStorage.setItem('sc_policies', JSON.stringify(next));
+      safeStorageSet('sc_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('policies', next), 0);
       return next;
     });
@@ -4940,7 +4962,7 @@ function App() {
 
     setter(prev => {
       const next = mode === 'reemplazar' ? data : [...prev, ...data];
-      localStorage.setItem(storageKey, JSON.stringify(next));
+      safeStorageSet(storageKey, JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud(categoryKey, next), 0);
       return next;
     });
@@ -4972,7 +4994,7 @@ function App() {
         }
       });
       
-      localStorage.setItem('sc_siniestros', JSON.stringify(next));
+      safeStorageSet('sc_siniestros', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('siniestros', next), 0);
       toast(`Importación completada: ${added} nuevos, ${updated} actualizados.`, 'success');
       return next;
@@ -4984,7 +5006,7 @@ function App() {
     setCaroPolicies(prev => {
       const exists = prev.find(x => x.id === policyToSave.id);
       const next = exists ? prev.map(x => x.id === policyToSave.id ? policyToSave : x) : [...prev, policyToSave];
-      localStorage.setItem('sc_caro_policies', JSON.stringify(next));
+      safeStorageSet('sc_caro_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('caroPolicies', next), 0);
       return next;
     });
@@ -5016,7 +5038,7 @@ function App() {
         }
         return { ...basePolicy, estatus: 'PENDIENTE', fechaPago: nextDate || p.fechaPago };
       });
-      localStorage.setItem('sc_caro_policies', JSON.stringify(next));
+      safeStorageSet('sc_caro_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('caroPolicies', next), 0);
       return next;
     });
@@ -5028,7 +5050,7 @@ function App() {
     setGmmPolicies(prev => {
       const exists = prev.find(x => x.id === policyToSave.id);
       const next = exists ? prev.map(x => x.id === policyToSave.id ? policyToSave : x) : [...prev, policyToSave];
-      localStorage.setItem('sc_gmm_policies', JSON.stringify(next));
+      safeStorageSet('sc_gmm_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('gmmPolicies', next), 0);
       return next;
     });
@@ -5060,7 +5082,7 @@ function App() {
         }
         return { ...basePolicy, estatus: 'PENDIENTE', fechaPago: nextDate || p.fechaPago };
       });
-      localStorage.setItem('sc_gmm_policies', JSON.stringify(next));
+      safeStorageSet('sc_gmm_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('gmmPolicies', next), 0);
       return next;
     });
@@ -5072,7 +5094,7 @@ function App() {
     setAutosPolicies(prev => {
       const exists = prev.find(x => x.id === policyToSave.id);
       const next = exists ? prev.map(x => x.id === policyToSave.id ? policyToSave : x) : [...prev, policyToSave];
-      localStorage.setItem('sc_autos_policies', JSON.stringify(next));
+      safeStorageSet('sc_autos_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('autosPolicies', next), 0);
       return next;
     });
@@ -5104,7 +5126,7 @@ function App() {
         }
         return { ...basePolicy, estatus: 'PENDIENTE', fechaPago: nextDate || p.fechaPago };
       });
-      localStorage.setItem('sc_autos_policies', JSON.stringify(next));
+      safeStorageSet('sc_autos_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('autosPolicies', next), 0);
       return next;
     });
@@ -5116,7 +5138,7 @@ function App() {
     setVidaPolicies(prev => {
       const exists = prev.find(x => x.id === policyToSave.id);
       const next = exists ? prev.map(x => x.id === policyToSave.id ? policyToSave : x) : [...prev, policyToSave];
-      localStorage.setItem('sc_vida_policies', JSON.stringify(next));
+      safeStorageSet('sc_vida_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('vidaPolicies', next), 0);
       return next;
     });
@@ -5148,7 +5170,7 @@ function App() {
         }
         return { ...basePolicy, estatus: 'PENDIENTE', fechaPago: nextDate || p.fechaPago };
       });
-      localStorage.setItem('sc_vida_policies', JSON.stringify(next));
+      safeStorageSet('sc_vida_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('vidaPolicies', next), 0);
       return next;
     });
@@ -5160,7 +5182,7 @@ function App() {
     setDanosPolicies(prev => {
       const exists = prev.find(x => x.id === policyToSave.id);
       const next = exists ? prev.map(x => x.id === policyToSave.id ? policyToSave : x) : [...prev, policyToSave];
-      localStorage.setItem('sc_danos_policies', JSON.stringify(next));
+      safeStorageSet('sc_danos_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('danosPolicies', next), 0);
       return next;
     });
@@ -5192,7 +5214,7 @@ function App() {
         }
         return { ...basePolicy, estatus: 'PENDIENTE', fechaPago: nextDate || p.fechaPago };
       });
-      localStorage.setItem('sc_danos_policies', JSON.stringify(next));
+      safeStorageSet('sc_danos_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('danosPolicies', next), 0);
       return next;
     });
@@ -5204,7 +5226,7 @@ function App() {
     setHogarPolicies(prev => {
       const exists = prev.find(x => x.id === policyToSave.id);
       const next = exists ? prev.map(x => x.id === policyToSave.id ? policyToSave : x) : [...prev, policyToSave];
-      localStorage.setItem('sc_hogar_policies', JSON.stringify(next));
+      safeStorageSet('sc_hogar_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('hogarPolicies', next), 0);
       return next;
     });
@@ -5216,7 +5238,7 @@ function App() {
   const deleteHogarPolicy = useCallback((id) => {
     setHogarPolicies(prev => {
       const next = prev.filter(p => p.id !== id);
-      localStorage.setItem('sc_hogar_policies', JSON.stringify(next));
+      safeStorageSet('sc_hogar_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('hogarPolicies', next), 0);
       return next;
     });
@@ -5242,7 +5264,7 @@ function App() {
         }
         return { ...basePolicy, estatus: 'PENDIENTE', fechaPago: nextDate || p.fechaPago };
       });
-      localStorage.setItem('sc_hogar_policies', JSON.stringify(next));
+      safeStorageSet('sc_hogar_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('hogarPolicies', next), 0);
       return next;
     });
@@ -5252,7 +5274,7 @@ function App() {
   const updateSiniestroEstatus = useCallback((id, estatus) => {
     setSiniestros(prev => {
       const next = prev.map(s => s.id === id ? { ...s, estatus } : s);
-      localStorage.setItem('sc_siniestros', JSON.stringify(next));
+      safeStorageSet('sc_siniestros', JSON.stringify(next));
       if (window.db) window.db.ref('app_data/siniestros').set(next);
       return next;
     });
@@ -5261,7 +5283,7 @@ function App() {
   const saveCotizacion = useCallback((coti) => {
     setCotizaciones(prev => {
       const next = [coti, ...prev];
-      localStorage.setItem('sc_cotizaciones', JSON.stringify(next));
+      safeStorageSet('sc_cotizaciones', JSON.stringify(next));
       if (window.db) window.db.ref('app_data/cotizaciones').set(next);
       return next;
     });
@@ -5271,7 +5293,7 @@ function App() {
   const updateCotizacionEstatus = useCallback((id, estatus) => {
     setCotizaciones(prev => {
       const next = prev.map(c => c.id === id ? { ...c, estatus } : c);
-      localStorage.setItem('sc_cotizaciones', JSON.stringify(next));
+      safeStorageSet('sc_cotizaciones', JSON.stringify(next));
       if (window.db) window.db.ref('app_data/cotizaciones').set(next);
       return next;
     });
@@ -5314,7 +5336,7 @@ function App() {
     };
     setArchivedPolicies(prev => {
       const next = [...prev, archived];
-      localStorage.setItem('sc_archived_policies', JSON.stringify(next));
+      safeStorageSet('sc_archived_policies', JSON.stringify(next));
       setTimeout(() => syncCategoryToCloud('archivedPolicies', next), 0);
       return next;
     });
