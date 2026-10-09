@@ -157,37 +157,31 @@ const SAMPLE_DATA = [];
 
 // ─── Plantillas de Mensajes Predeterminadas ───────────────────
 const DEFAULT_TEMPLATES = {
-  whatsapp: `Estimado(a) asegurado(a) *{nombre}* 👋
+  whatsapp: `Hola {nombre}
 
-Le contactamos de parte de *PRE & PRO CONSULTORES* para recordarle que su póliza *{poliza}* {estado_vencimiento}.
+Soy su asesor profesional en seguros y fianzas, para recordarle que su póliza *{poliza}* {estado_vencimiento}.
 
-📋 *Detalles de pago:*
+*Detalles de pago:*
 • Unidad: {bien}
 • Monto a pagar: *{monto}*
 
-Le pedimos de favor realizar su pago antes de la fecha límite para mantener su cobertura vigente 🛡️
+Le pedimos de favor realizar su pago antes de la fecha límite para mantener su cobertura vigente
 
-Si ya realizó su pago, le pedimos de favor nos envíe su comprobante de pago para su respectiva aplicación 📄
+Si ya realizó su pago, por favor enviar su comprobante de pago para su aplicación.
 
-¡Gracias por su confianza! 😊
-*PRE & PRO CONSULTORES*`,
+¡Gracias por su preferencia!`,
 
-  email_asunto: 'Recordatorio de Pago – Póliza {poliza} | PRE & PRO CONSULTORES',
-  email_cuerpo: `Estimado(a) asegurado(a) {nombre},
+  email_asunto: 'Recordatorio de Pago – Póliza {poliza}',
+  email_cuerpo: `Estimado/a {nombre},
 
-Por medio del presente correo le recordamos amablemente que su póliza de seguro {poliza} {estado_vencimiento}.
+Por medio del presente correo le recordamos amablemente que el pago de su póliza de seguro {poliza} {estado_vencimiento}.
 
 DETALLES DE SU PÓLIZA:
-━━━━━━━━━━━━━━━━━━━━━━━
 • Póliza N°: {poliza}
 • Unidad: {bien}
 • Monto a pagar: {monto}
 
-Para mantener la vigencia de su cobertura, le solicitamos realizar el pago antes de la fecha indicada.
-
-Si ya realizó su pago, le pedimos nos envíe su comprobante para su respectiva aplicación.
-
-Si tiene alguna duda, no dude en contactarnos.
+Adjunto a este mensaje le compartimos las cuentas concentradoras autorizadas para realizar su depósito o transferencia. Una vez realizado su movimiento, le agradeceremos nos comparta su comprobante por este medio para proceder con la aplicación del pago.
 
 Atentamente,
 PRE & PRO CONSULTORES`,
@@ -3458,7 +3452,8 @@ function TemplatesPage({ templates, onSave, toast }) {
     setWaText(DEFAULT_TEMPLATES.whatsapp);
     setEmailAsunto(DEFAULT_TEMPLATES.email_asunto);
     setEmailCuerpo(DEFAULT_TEMPLATES.email_cuerpo);
-    toast('Plantillas restauradas al valor predeterminado', 'info');
+    onSave({ whatsapp: DEFAULT_TEMPLATES.whatsapp, email_asunto: DEFAULT_TEMPLATES.email_asunto, email_cuerpo: DEFAULT_TEMPLATES.email_cuerpo });
+    toast('Plantillas restauradas y guardadas correctamente ✅', 'info');
   };
 
   const previewPolicy = {
@@ -4712,6 +4707,19 @@ const FIREBASE_REST_URL = 'https://pre-pro-consultores-gestion-default-rtdb.fire
     }).catch(err => console.error('Cloud REST PUT error:', err));
   }, []);
 
+  const saveTemplates = useCallback((newTemplates) => {
+    setTemplates(newTemplates);
+    safeStorageSet('sc_templates', JSON.stringify(newTemplates));
+    if (window.db) {
+      try { window.db.ref('app_data/templates').set(newTemplates); } catch(e) {}
+    }
+    fetch(`${FIREBASE_REST_URL}/templates.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newTemplates)
+    }).catch(err => console.error('Cloud REST PUT error:', err));
+  }, []);
+
   // ☁️ Sincronización Híbrida en tiempo real (REST + WebSockets) con Firebase
   useEffect(() => {
     // 1. Carga REST Inmediata (funciona en TODOS los perfiles de Chrome, teléfonos e Incógnito)
@@ -4797,7 +4805,11 @@ const FIREBASE_REST_URL = 'https://pre-pro-consultores-gestion-default-rtdb.fire
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
-    }).then(() => {
+    }).then(async (res) => {
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || ('Código ' + res.status));
+      }
       toast('¡Datos subidos a la Nube con éxito! ☁️✅', 'success');
     }).catch(err => {
       toast('Error al subir a la nube: ' + err.message, 'error');
@@ -5657,7 +5669,7 @@ const FIREBASE_REST_URL = 'https://pre-pro-consultores-gestion-default-rtdb.fire
             <CotizacionesPage cotizaciones={cotizaciones} onSave={saveCotizacion} onUpdateEstatus={updateCotizacionEstatus} />
           )}
           {page === 'templates' && (
-            <TemplatesPage templates={templates} onSave={setTemplates} toast={toast} />
+            <TemplatesPage templates={templates} onSave={saveTemplates} toast={toast} />
           )}
           {page === 'comprobantes' && (
             <ComprobantesPage policies={allPolicies} onUpdatePolicy={allProps.onUpdatePolicy} />
