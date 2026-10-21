@@ -334,7 +334,7 @@ function StatusBadge({ policy }) {
 
 // ─── Agent Badge ──────────────────────────────────────────────
 function AgentBadge({ policy, agente }) {
-  const ag = agente || policy?.agente || policy?.aseguradora || 'SIN CLAVE';
+  const ag = (policy?._isCaro ? 'CARO' : null) || agente || policy?.agente || policy?.aseguradora || 'SIN CLAVE';
   return (
     <span className={`agent-badge agent-${ag?.toLowerCase()}`}>
       {ag === 'DANIEL' ? '👤' : '👥'} {ag}
@@ -728,14 +728,17 @@ function FieldGroup({ label, id, required, error, children }) {
 }
 
 // ─── Modal: Nueva / Editar Póliza ────────────────────────────
-function PolicyModal({ policy, onSave, onClose, toast, agentOptions, isGmm = false, isAutos = false, isVida = false, isDanos = false, isHogar = false }) {
+function PolicyModal({ policy, onSave, onClose, toast, agentOptions, isCaro = false, isGmm = false, isAutos = false, isVida = false, isDanos = false, isHogar = false }) {
   useEscapeKey(onClose);
   const gmmAseguradoras = ['AXA', 'MAPFRE', 'GNP', 'CHUBB', 'SURA', 'PLAN SEGUROS', 'ZURICH', 'QUALITAS', 'AIG', 'BANORTE', 'OTRO'];
   const autosAseguradoras = ['ZURICH', 'AXA', 'HDI', 'GNP', 'QUALITAS', 'AIG', 'MAPFRE', 'BANORTE', 'ANA', 'SEGUROS ARGO', 'CHUBB', 'OTRO'];
-  const defaultOpts = (isGmm || isAutos || isVida || isDanos || isHogar) 
-    ? ['DANIEL', 'OTRO'] 
-    : ['DANIEL', 'MARTIN'];
-  const optsList = agentOptions || defaultOpts;
+
+  const defaultOpts = isCaro
+    ? ['CARO']
+    : (isGmm || isAutos || isVida || isDanos || isHogar) 
+      ? ['DANIEL', 'OTRO'] 
+      : ['DANIEL', 'MARTIN'];
+  const optsList = isCaro ? ['CARO'] : (agentOptions || defaultOpts);
 
   const isEdit = !!policy?.id;
   const [form, setForm] = useState(() => {
@@ -745,8 +748,8 @@ function PolicyModal({ policy, onSave, onClose, toast, agentOptions, isGmm = fal
       const isKnownAseg = listAseg.includes(policy.aseguradora);
       return {
         ...policy,
-        agente: isKnown ? policy.agente : 'OTRO',
-        agenteCustom: isKnown ? '' : (policy.agente || ''),
+        agente: isCaro ? 'CARO' : (isKnown ? policy.agente : 'OTRO'),
+        agenteCustom: isCaro ? '' : (isKnown ? '' : (policy.agente || '')),
         aseguradora: isKnownAseg ? policy.aseguradora : (policy.aseguradora ? 'OTRO' : listAseg[0]),
         aseguradoraCustom: isKnownAseg ? '' : (policy.aseguradora || ''),
         perteneceA: policy.perteneceA || ''
@@ -754,7 +757,7 @@ function PolicyModal({ policy, onSave, onClose, toast, agentOptions, isGmm = fal
     }
     return {
       nombre: '', poliza: '', bien: '', formaPago: 'MENSUAL',
-      agente: optsList[0], fechaPago: todayISO(), monto: '',
+      agente: isCaro ? 'CARO' : optsList[0], fechaPago: todayISO(), monto: '',
       estatus: 'PENDIENTE', correo: '', telefono: '', notas: '',
       periodoGracia: '', fechaInicioVigencia: '',
       aseguradora: listAseg[0],
@@ -787,6 +790,7 @@ function PolicyModal({ policy, onSave, onClose, toast, agentOptions, isGmm = fal
       ...form,
       id: form.id || generateId(),
       monto: Number(form.monto),
+      ...(isCaro ? { agente: 'CARO' } : {}),
       ...(form.formaPago !== 'CONTADO' && form.montoSubsecuente ? { montoSubsecuente: Number(form.montoSubsecuente) } : {}),
       ...((isAutos || isGmm || isVida || isDanos || isHogar) && form.agente === 'OTRO' && form.agenteCustom ? { agente: form.agenteCustom } : {}),
       ...((isAutos || isGmm || isVida || isDanos || isHogar) && form.aseguradora === 'OTRO' && form.aseguradoraCustom ? { aseguradora: form.aseguradoraCustom } : {})
@@ -837,16 +841,22 @@ function PolicyModal({ policy, onSave, onClose, toast, agentOptions, isGmm = fal
               </select>
             </FieldGroup>
             <FieldGroup label="Clave de Agente" id="agente">
-              <select id="agente" className="select" value={form.agente}
-                onChange={e => set('agente', e.target.value)}>
-                {Array.from(new Set([...optsList, ...(form.agente && !optsList.includes(form.agente) && form.agente !== 'OTRO' ? [form.agente] : [])])).map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-              {(isAutos || isGmm || isVida || isDanos || isHogar) && form.agente === 'OTRO' && (
-                <input className="input" style={{marginTop: 8}} value={form.agenteCustom || ''}
-                  onChange={e => set('agenteCustom', e.target.value)}
-                  placeholder="Escribe el nombre del agente..." />
+              {isCaro ? (
+                <input className="input" value="CARO" readOnly disabled style={{fontWeight: 'bold', background: 'var(--bg-secondary)', cursor: 'not-allowed', color: '#a78bfa'}} />
+              ) : (
+                <>
+                  <select id="agente" className="select" value={form.agente}
+                    onChange={e => set('agente', e.target.value)}>
+                    {Array.from(new Set([...optsList, ...(form.agente && !optsList.includes(form.agente) && form.agente !== 'OTRO' ? [form.agente] : [])])).map(opt => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                  {(isAutos || isGmm || isVida || isDanos || isHogar) && form.agente === 'OTRO' && (
+                    <input className="input" style={{marginTop: 8}} value={form.agenteCustom || ''}
+                      onChange={e => set('agenteCustom', e.target.value)}
+                      placeholder="Escribe el nombre del agente..." />
+                  )}
+                </>
               )}
             </FieldGroup>
             {(isAutos || isGmm || isVida || isDanos || isHogar) && (
@@ -2138,6 +2148,7 @@ function CaroPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, 
   useEscapeKey(deleteConfirm ? () => setDeleteConfirm(null) : null);
 
   const [search, setSearch] = useState('');
+  const [filterPertenece, setFilterPertenece] = useState('TODOS');
   const [filterAgente, setFilterAgente] = useState('TODOS');
   const [filterEstatus, setFilterEstatus] = useState('TODOS');
   const [filterForma, setFilterForma] = useState('TODOS');
@@ -2156,6 +2167,11 @@ function CaroPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, 
     return { total, pagados, pendientes, vencidos, urgentes, renovaciones, comprobantes };
   }, [policies]);
 
+  const perteneceOpts = useMemo(() => {
+    const list = policies || [];
+    return Array.from(new Set(list.map(p => (p.perteneceA || '').trim()).filter(Boolean))).sort();
+  }, [policies]);
+
   const agentOpts = useMemo(() => {
     const list = policies || [];
     return Array.from(new Set(list.map(p => p.agente).filter(Boolean)));
@@ -2169,7 +2185,9 @@ function CaroPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, 
       const matchName = (p.nombre || '').toLowerCase().includes(q);
       const matchPoliza = (p.poliza || '').toLowerCase().includes(q);
       const matchBien = (p.bien || '').toLowerCase().includes(q);
-      if (q && !matchName && !matchPoliza && !matchBien) return false;
+      const matchPertenece = (p.perteneceA || '').toLowerCase().includes(q);
+      if (q && !matchName && !matchPoliza && !matchBien && !matchPertenece) return false;
+      if (filterPertenece !== 'TODOS' && (p.perteneceA || '').trim().toLowerCase() !== filterPertenece.toLowerCase()) return false;
       if (filterAgente !== 'TODOS' && p.agente !== filterAgente && p.aseguradora !== filterAgente) return false;
       if (filterEstatus !== 'TODOS') {
         if (filterEstatus === 'RENOVACIONES') {
@@ -2191,14 +2209,14 @@ function CaroPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, 
       if (dateTo && p.fechaPago > dateTo) return false;
       return true;
     });
-  }, [policies, search, filterAgente, filterEstatus, filterForma, dateFrom, dateTo]);
+  }, [policies, search, filterPertenece, filterAgente, filterEstatus, filterForma, dateFrom, dateTo]);
 
   const clearFilters = () => {
-    setSearch(''); setFilterAgente('TODOS'); setFilterEstatus('TODOS');
+    setSearch(''); setFilterPertenece('TODOS'); setFilterAgente('TODOS'); setFilterEstatus('TODOS');
     setFilterForma('TODOS'); setDateFrom(''); setDateTo('');
   };
 
-  const activeFilters = filterAgente !== 'TODOS' || filterEstatus !== 'TODOS' ||
+  const activeFilters = filterPertenece !== 'TODOS' || filterAgente !== 'TODOS' || filterEstatus !== 'TODOS' ||
     filterForma !== 'TODOS' || dateFrom || dateTo || search;
 
   return (
@@ -2248,14 +2266,14 @@ function CaroPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, 
               <Icons.Search />
               <input className="input input-search" value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar nombre, póliza, bien..." />
+                placeholder="Buscar cliente, póliza, bien, pertenece a..." />
             </div>
             <div className="filter-group">
-              <span className="filter-label">Agente</span>
-              <select className="select" style={{minWidth:130}} value={filterAgente}
-                onChange={e => setFilterAgente(e.target.value)}>
+              <span className="filter-label">Pertenece a</span>
+              <select className="select" style={{minWidth:140}} value={filterPertenece}
+                onChange={e => setFilterPertenece(e.target.value)}>
                 <option value="TODOS">Todos</option>
-                {agentOpts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                {perteneceOpts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
             <div className="filter-group">
@@ -2398,8 +2416,8 @@ function CaroPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, 
         ));
       })()}
 
-      {modalNew && <PolicyModal agentOptions={['DANIEL', 'JULIO']} onSave={onSave} onClose={() => setModalNew(false)} toast={toast} />}
-      {modalEdit && <PolicyModal agentOptions={['DANIEL', 'JULIO']} policy={modalEdit} onSave={onSave} onClose={() => setModalEdit(null)} toast={toast} />}
+      {modalNew && <PolicyModal isCaro={true} onSave={onSave} onClose={() => setModalNew(false)} toast={toast} />}
+      {modalEdit && <PolicyModal isCaro={true} policy={modalEdit} onSave={onSave} onClose={() => setModalEdit(null)} toast={toast} />}
       {modalPaid && <MarkPaidModal policy={modalPaid} onConfirm={(p, n, c, isLast) => { onMarkPaid(p, n, c, isLast); setModalPaid(null); }} onClose={() => setModalPaid(null)} toast={toast} />}
       
       {deleteConfirm && (
@@ -5014,7 +5032,7 @@ const FIREBASE_REST_URL = 'https://pre-pro-consultores-gestion-default-rtdb.fire
   }, [toast]);
 
   const saveCaroPolicy = useCallback((p) => {
-    const policyToSave = { ...p, id: p.id || generateId() };
+    const policyToSave = { ...p, agente: 'CARO', id: p.id || generateId() };
     setCaroPolicies(prev => {
       const exists = prev.find(x => x.id === policyToSave.id);
       const next = exists ? prev.map(x => x.id === policyToSave.id ? policyToSave : x) : [...prev, policyToSave];
@@ -5423,7 +5441,7 @@ const FIREBASE_REST_URL = 'https://pre-pro-consultores-gestion-default-rtdb.fire
 
   const allPolicies = useMemo(() => [
     ...policies,
-    ...caroPolicies.map(p => ({ ...p, _isCaro: true })),
+    ...caroPolicies.map(p => ({ ...p, agente: 'CARO', _isCaro: true })),
     ...gmmPolicies.map(p => ({ ...p, _isGmm: true })),
     ...autosPolicies.map(p => ({ ...p, _isAutos: true })),
     ...vidaPolicies.map(p => ({ ...p, _isVida: true })),
@@ -5697,6 +5715,7 @@ const FIREBASE_REST_URL = 'https://pre-pro-consultores-gestion-default-rtdb.fire
       {modalEdit && (
         <PolicyModal 
           policy={modalEdit} 
+          isCaro={!!modalEdit._isCaro}
           isGmm={!!modalEdit._isGmm}
           isAutos={!!modalEdit._isAutos}
           onSave={
