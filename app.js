@@ -1815,6 +1815,7 @@ function PoliciesPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEm
   const [selectedImg, setSelectedImg] = useState(null);
 
   const [search, setSearch] = useState('');
+  const [filterPertenece, setFilterPertenece] = useState('TODOS');
   const [filterAgente, setFilterAgente] = useState('TODOS');
   const [filterEstatus, setFilterEstatus] = useState(defaultEstatus);
   const [filterForma, setFilterForma] = useState('TODOS');
@@ -1837,6 +1838,11 @@ function PoliciesPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEm
     return { total, pagados, pendientes, vencidos, urgentes, renovaciones, comprobantes };
   }, [policies]);
 
+  const perteneceOpts = useMemo(() => {
+    const list = policies || [];
+    return Array.from(new Set(list.map(p => (p.perteneceA || '').trim()).filter(Boolean))).sort();
+  }, [policies]);
+
   const agentOpts = useMemo(() => {
     const list = policies || [];
     return Array.from(new Set(list.map(p => p.agente).filter(Boolean)));
@@ -1850,7 +1856,9 @@ function PoliciesPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEm
       const matchName = (p.nombre || '').toLowerCase().includes(q);
       const matchPoliza = (p.poliza || '').toLowerCase().includes(q);
       const matchBien = (p.bien || '').toLowerCase().includes(q);
-      if (q && !matchName && !matchPoliza && !matchBien) return false;
+      const matchPertenece = (p.perteneceA || '').toLowerCase().includes(q);
+      if (q && !matchName && !matchPoliza && !matchBien && !matchPertenece) return false;
+      if (filterPertenece !== 'TODOS' && (p.perteneceA || '').trim().toLowerCase() !== filterPertenece.toLowerCase()) return false;
       if (filterAgente !== 'TODOS' && p.agente !== filterAgente && p.aseguradora !== filterAgente) return false;
       if (filterEstatus !== 'TODOS') {
         if (filterEstatus === 'RENOVACIONES') {
@@ -1872,14 +1880,14 @@ function PoliciesPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEm
       if (dateTo && p.fechaPago > dateTo) return false;
       return true;
     });
-  }, [policies, search, filterAgente, filterEstatus, filterForma, dateFrom, dateTo]);
+  }, [policies, search, filterPertenece, filterAgente, filterEstatus, filterForma, dateFrom, dateTo]);
 
   const clearFilters = () => {
-    setSearch(''); setFilterAgente('TODOS'); setFilterEstatus('TODOS');
+    setSearch(''); setFilterPertenece('TODOS'); setFilterAgente('TODOS'); setFilterEstatus('TODOS');
     setFilterForma('TODOS'); setDateFrom(''); setDateTo('');
   };
 
-  const activeFilters = filterAgente !== 'TODOS' || filterEstatus !== 'TODOS' ||
+  const activeFilters = filterPertenece !== 'TODOS' || filterAgente !== 'TODOS' || filterEstatus !== 'TODOS' ||
     filterForma !== 'TODOS' || dateFrom || dateTo || search;
 
   return (
@@ -1929,7 +1937,15 @@ function PoliciesPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEm
               <Icons.Search />
               <input className="input input-search" value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar nombre, póliza, bien..." />
+                placeholder="Buscar cliente, póliza, bien, pertenece a..." />
+            </div>
+            <div className="filter-group">
+              <span className="filter-label">Pertenece a</span>
+              <select className="select" style={{minWidth:140}} value={filterPertenece}
+                onChange={e => setFilterPertenece(e.target.value)}>
+                <option value="TODOS">Todos</option>
+                {perteneceOpts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              </select>
             </div>
             <div className="filter-group">
               <span className="filter-label">Agente</span>
@@ -2454,6 +2470,7 @@ function GmmPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, o
   useEscapeKey(deleteConfirm ? () => setDeleteConfirm(null) : null);
 
   const [search, setSearch] = useState('');
+  const [filterPertenece, setFilterPertenece] = useState('TODOS');
   const [filterAgente, setFilterAgente] = useState('TODOS');
   const [filterEstatus, setFilterEstatus] = useState('TODOS');
   const [filterForma, setFilterForma] = useState('TODOS');
@@ -2472,6 +2489,11 @@ function GmmPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, o
     return { total, pagados, pendientes, vencidos, urgentes, renovaciones, comprobantes };
   }, [policies]);
 
+  const perteneceOpts = useMemo(() => {
+    const list = policies || [];
+    return Array.from(new Set(list.map(p => (p.perteneceA || '').trim()).filter(Boolean))).sort();
+  }, [policies]);
+
   const agentOpts = useMemo(() => {
     const list = policies || [];
     return Array.from(new Set(list.flatMap(p => [p.agente, p.aseguradora]).filter(Boolean)));
@@ -2485,7 +2507,9 @@ function GmmPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, o
       const matchName = (p.nombre || '').toLowerCase().includes(q);
       const matchPoliza = (p.poliza || '').toLowerCase().includes(q);
       const matchBien = (p.bien || '').toLowerCase().includes(q);
-      if (q && !matchName && !matchPoliza && !matchBien) return false;
+      const matchPertenece = (p.perteneceA || '').toLowerCase().includes(q);
+      if (q && !matchName && !matchPoliza && !matchBien && !matchPertenece) return false;
+      if (filterPertenece !== 'TODOS' && (p.perteneceA || '').trim().toLowerCase() !== filterPertenece.toLowerCase()) return false;
       if (filterAgente !== 'TODOS' && p.agente !== filterAgente && p.aseguradora !== filterAgente) return false;
       if (filterEstatus !== 'TODOS') {
         if (filterEstatus === 'RENOVACIONES') {
@@ -2507,14 +2531,14 @@ function GmmPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, o
       if (dateTo && p.fechaPago > dateTo) return false;
       return true;
     });
-  }, [policies, search, filterAgente, filterEstatus, filterForma, dateFrom, dateTo]);
+  }, [policies, search, filterPertenece, filterAgente, filterEstatus, filterForma, dateFrom, dateTo]);
 
   const clearFilters = () => {
-    setSearch(''); setFilterAgente('TODOS'); setFilterEstatus('TODOS');
+    setSearch(''); setFilterPertenece('TODOS'); setFilterAgente('TODOS'); setFilterEstatus('TODOS');
     setFilterForma('TODOS'); setDateFrom(''); setDateTo('');
   };
 
-  const activeFilters = filterAgente !== 'TODOS' || filterEstatus !== 'TODOS' ||
+  const activeFilters = filterPertenece !== 'TODOS' || filterAgente !== 'TODOS' || filterEstatus !== 'TODOS' ||
     filterForma !== 'TODOS' || dateFrom || dateTo || search;
 
   return (
@@ -2564,7 +2588,15 @@ function GmmPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, o
               <Icons.Search />
               <input className="input input-search" value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar asegurado, póliza, plan..." />
+                placeholder="Buscar asegurado, póliza, plan, pertenece a..." />
+            </div>
+            <div className="filter-group">
+              <span className="filter-label">Pertenece a</span>
+              <select className="select" style={{minWidth:140}} value={filterPertenece}
+                onChange={e => setFilterPertenece(e.target.value)}>
+                <option value="TODOS">Todos</option>
+                {perteneceOpts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              </select>
             </div>
             <div className="filter-group">
               <span className="filter-label">Agente / Aseg.</span>
@@ -3122,6 +3154,7 @@ function SectionPoliciesPage({
   useEscapeKey(deleteConfirm ? () => setDeleteConfirm(null) : null);
 
   const [search, setSearch] = useState('');
+  const [filterPertenece, setFilterPertenece] = useState('TODOS');
   const [filterAgente, setFilterAgente] = useState('TODOS');
   const [filterEstatus, setFilterEstatus] = useState('TODOS');
   const [filterForma, setFilterForma] = useState('TODOS');
@@ -3140,6 +3173,11 @@ function SectionPoliciesPage({
     return { total, pagados, pendientes, vencidos, urgentes, renovaciones, comprobantes };
   }, [policies]);
 
+  const perteneceOpts = useMemo(() => {
+    const list = policies || [];
+    return Array.from(new Set(list.map(p => (p.perteneceA || '').trim()).filter(Boolean))).sort();
+  }, [policies]);
+
   const agentOpts = useMemo(() => {
     const list = policies || [];
     return Array.from(new Set(list.flatMap(p => [p.agente, p.aseguradora]).filter(Boolean)));
@@ -3153,7 +3191,9 @@ function SectionPoliciesPage({
       const matchName = (p.nombre || '').toLowerCase().includes(q);
       const matchPoliza = (p.poliza || '').toLowerCase().includes(q);
       const matchBien = (p.bien || '').toLowerCase().includes(q);
-      if (q && !matchName && !matchPoliza && !matchBien) return false;
+      const matchPertenece = (p.perteneceA || '').toLowerCase().includes(q);
+      if (q && !matchName && !matchPoliza && !matchBien && !matchPertenece) return false;
+      if (filterPertenece !== 'TODOS' && (p.perteneceA || '').trim().toLowerCase() !== filterPertenece.toLowerCase()) return false;
       if (filterAgente !== 'TODOS' && p.agente !== filterAgente && p.aseguradora !== filterAgente) return false;
       if (filterEstatus !== 'TODOS') {
         if (filterEstatus === 'RENOVACIONES') {
@@ -3175,14 +3215,14 @@ function SectionPoliciesPage({
       if (dateTo && p.fechaPago > dateTo) return false;
       return true;
     });
-  }, [policies, search, filterAgente, filterEstatus, filterForma, dateFrom, dateTo]);
+  }, [policies, search, filterPertenece, filterAgente, filterEstatus, filterForma, dateFrom, dateTo]);
 
   const clearFilters = () => {
-    setSearch(''); setFilterAgente('TODOS'); setFilterEstatus('TODOS');
+    setSearch(''); setFilterPertenece('TODOS'); setFilterAgente('TODOS'); setFilterEstatus('TODOS');
     setFilterForma('TODOS'); setDateFrom(''); setDateTo('');
   };
 
-  const activeFilters = filterAgente !== 'TODOS' || filterEstatus !== 'TODOS' ||
+  const activeFilters = filterPertenece !== 'TODOS' || filterAgente !== 'TODOS' || filterEstatus !== 'TODOS' ||
     filterForma !== 'TODOS' || dateFrom || dateTo || search;
 
   return (
@@ -3232,7 +3272,15 @@ function SectionPoliciesPage({
               <Icons.Search />
               <input className="input input-search" value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar nombre, póliza..." />
+                placeholder="Buscar cliente, póliza, pertenece a..." />
+            </div>
+            <div className="filter-group">
+              <span className="filter-label">Pertenece a</span>
+              <select className="select" style={{minWidth:140}} value={filterPertenece}
+                onChange={e => setFilterPertenece(e.target.value)}>
+                <option value="TODOS">Todos</option>
+                {perteneceOpts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              </select>
             </div>
             <div className="filter-group">
               <span className="filter-label">Agente / Aseguradora</span>
