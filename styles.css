@@ -335,20 +335,23 @@ h1, h2, h3, h4 { font-weight: 700; line-height: 1.2; }
 /* ── Stat Cards ── */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
 }
 
 .stat-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 20px;
+  border-radius: 10px;
+  padding: 10px 12px;
   position: relative;
   overflow: hidden;
   transition: all var(--transition-base);
   cursor: default;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .stat-card::before {
@@ -361,7 +364,7 @@ h1, h2, h3, h4 { font-weight: 700; line-height: 1.2; }
 }
 
 .stat-card:hover {
-  border-color: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.18);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
@@ -369,33 +372,36 @@ h1, h2, h3, h4 { font-weight: 700; line-height: 1.2; }
 .stat-card:hover::before { opacity: 1; }
 
 .stat-card-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
-  margin-bottom: 14px;
+  font-size: 14px;
+  margin-bottom: 6px;
   position: relative;
   z-index: 1;
 }
 
 .stat-card-value {
-  font-size: 28px;
+  font-size: 20px;
   font-weight: 800;
-  line-height: 1;
-  margin-bottom: 4px;
+  line-height: 1.1;
+  margin-bottom: 2px;
   position: relative;
   z-index: 1;
 }
 
 .stat-card-label {
-  font-size: 12px;
+  font-size: 10.5px;
   color: var(--text-muted);
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   position: relative;
   z-index: 1;
 }
@@ -406,6 +412,7 @@ h1, h2, h3, h4 { font-weight: 700; line-height: 1.2; }
 .stat-yellow .stat-card-icon { background: rgba(245,158,11,0.15); color: var(--accent-yellow); }
 .stat-orange .stat-card-icon { background: rgba(249,115,22,0.15); color: var(--accent-orange); }
 .stat-purple .stat-card-icon { background: rgba(139,92,246,0.15); color: var(--accent-purple); }
+.stat-gray .stat-card-icon { background: rgba(148,163,184,0.15); color: #94a3b8; }
 
 .stat-blue .stat-card-value { color: var(--accent-blue-light); }
 .stat-green .stat-card-value { color: var(--accent-green); }
@@ -413,6 +420,7 @@ h1, h2, h3, h4 { font-weight: 700; line-height: 1.2; }
 .stat-yellow .stat-card-value { color: var(--accent-yellow); }
 .stat-orange .stat-card-value { color: var(--accent-orange); }
 .stat-purple .stat-card-value { color: var(--accent-purple); }
+.stat-gray .stat-card-value { color: #94a3b8; }
 
 /* ── Alert Banner ── */
 .alert-banner {
@@ -1333,16 +1341,20 @@ tbody tr.selected-row {
     transform: translateX(0) !important; 
   }
   .main-content { margin-left: 0 !important; }
-  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+  .stats-grid { grid-template-columns: repeat(6, 1fr); gap: 8px !important; }
   .page-content { padding: 14px 10px; }
   .topbar { padding: 0 14px; gap: 10px; }
 }
 
+@media (max-width: 860px) {
+  .stats-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; }
+}
+
 @media (max-width: 540px) {
-  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
-  .stat-card { padding: 10px 12px; border-radius: var(--radius-lg); }
-  .stat-card-icon { font-size: 18px; width: 32px; height: 32px; margin-bottom: 6px; }
-  .stat-card-value { font-size: 18px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 6px !important; }
+  .stat-card { padding: 8px 10px; border-radius: 8px; }
+  .stat-card-icon { font-size: 14px; width: 26px; height: 26px; margin-bottom: 4px; }
+  .stat-card-value { font-size: 17px; }
   .stat-card-label { font-size: 9.5px; letter-spacing: 0.2px; }
   .form-grid { grid-template-columns: 1fr; gap: 12px; }
   .modal-overlay { padding: 10px; }
