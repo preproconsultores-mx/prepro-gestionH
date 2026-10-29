@@ -513,6 +513,21 @@ function RenewConfirmModal({ policy, onConfirm, onClose }) {
 // ─── Página: Histórico / Archivo de Pólizas Renovadas ────────
 function ArchivedPoliciesPage({ policies, allActivePolicies = [], onOpenPolicyNum }) {
   const [summaryPolicy, setSummaryPolicy] = useState(null);
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    const list = policies || [];
+    if (!search.trim()) return list;
+    const q = search.toLowerCase().trim();
+    return list.filter(p => {
+      const matchName = (p.nombre || '').toLowerCase().includes(q);
+      const matchPoliza = (p.poliza || '').toLowerCase().includes(q);
+      const matchPolizaNueva = (p.polizaRenovadaNum || '').toLowerCase().includes(q);
+      const matchSerie = (p.serie || p.noSerie || p.bien || '').toLowerCase().includes(q);
+      return matchName || matchPoliza || matchPolizaNueva || matchSerie;
+    });
+  }, [policies, search]);
+
   if (!policies || policies.length === 0) {
     return (
       <div className="card" style={{padding: 60, textAlign: 'center'}}>
@@ -536,8 +551,22 @@ function ArchivedPoliciesPage({ policies, allActivePolicies = [], onOpenPolicyNu
   return (
     <div>
       <div className="card" style={{marginBottom: 16}}>
-        <div className="card-header">
-          <span className="card-title">📦 Pólizas Renovadas / Históricas ({policies.length})</span>
+        <div className="card-header" style={{gap: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between'}}>
+          <span className="card-title">📦 Pólizas Renovadas / Históricas ({filtered.length})</span>
+          <div className="flex items-center gap-2" style={{maxWidth: 360, width: '100%'}}>
+            <div className="search-wrapper" style={{flex: 1}}>
+              <Icons.Search />
+              <input 
+                className="input input-search" 
+                value={search} 
+                onChange={e => setSearch(e.target.value)} 
+                placeholder="Buscar por póliza, nombre o serie..." 
+              />
+            </div>
+            {search && (
+              <button className="btn btn-ghost btn-sm" onClick={() => setSearch('')}>✕</button>
+            )}
+          </div>
         </div>
         <div style={{overflowX:'auto'}}>
           <table className="policies-table">
@@ -555,7 +584,7 @@ function ArchivedPoliciesPage({ policies, allActivePolicies = [], onOpenPolicyNu
               </tr>
             </thead>
             <tbody>
-              {[...policies].sort((a,b) => (b.fechaArchivado||'').localeCompare(a.fechaArchivado||'')).map(p => {
+              {[...filtered].sort((a,b) => (b.fechaArchivado||'').localeCompare(a.fechaArchivado||'')).map(p => {
                 const renewedNum = p.polizaRenovadaNum || (allActivePolicies && allActivePolicies.find(act => act.polizaAnteriorNum && String(act.polizaAnteriorNum).trim() === String(p.poliza).trim())?.poliza);
                 return (
                   <tr key={p.id} style={{cursor:'pointer'}} onDoubleClick={() => handleRowDoubleClick(p)}>
@@ -1322,19 +1351,56 @@ function DailyPaymentsModal({ dateStr, policies, caroPolicies, onClose, onEdit, 
   );
 }
 
+// ─── Normalizar lada limpia (+52, +1, etc.) y limpiar número WhatsApp ───
+const normalizeLada = (val) => {
+  if (!val || val === 'mx') return '+52';
+  const str = String(val).trim();
+  if (str.startsWith('+')) return str;
+  const digits = str.replace(/\D/g, '');
+  return digits ? `+${digits}` : '+52';
+};
+
+const cleanWhatsAppNumber = (phone, lada) => {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  let cleanLadaDigits = String(lada || '').replace(/\D/g, '');
+  if (!cleanLadaDigits || lada === 'mx') cleanLadaDigits = '52';
+
+  // Si ya tiene la lada incluida al frente (ej. 52 + 10 dígitos = 12 dígitos)
+  if (digits.startsWith(cleanLadaDigits) && digits.length === (cleanLadaDigits.length + 10)) {
+    return digits;
+  }
+  // Si ya tiene 12 o más dígitos y empieza con 52
+  if (digits.length >= 12 && digits.startsWith('52')) {
+    return digits;
+  }
+  // Si tiene 10 dígitos (estándar México)
+  if (digits.length === 10) {
+    return cleanLadaDigits + digits;
+  }
+  return cleanLadaDigits + digits;
+};
+
 // ─── Modal: WhatsApp / Correo ─────────────────────────────────
 function ContactModal({ policy, type, templates, onClose }) {
   useEscapeKey(onClose);
-  const lada = policy.lada || '+52';
-  const initialPhone = (policy.telefono || '').replace(/\D/g, '');
-  const [editablePhone, setEditablePhone] = useState(initialPhone);
-  const waNumber = lada.replace('+', '') + editablePhone;
+  const lada1 = normalizeLada(policy.lada);
+  const lada2 = normalizeLada(policy.lada2);
+  const tel1Clean = (policy.telefono || '').replace(/\D/g, '');
+  const tel2Clean = (policy.telefono2 || '').replace(/\D/g, '');
+
+  const [selectedOption, setSelectedOption] = useState('tel1');
+  const [editablePhone, setEditablePhone] = useState(tel1Clean || tel2Clean || '');
+
+  const currentLada = selectedOption === 'tel2' ? lada2 : lada1;
+  const waNumber = cleanWhatsAppNumber(editablePhone, currentLada);
 
   const msgText = fillTemplate(templates.whatsapp, policy, true);
   const emailAsunto = fillTemplate(templates.email_asunto, policy, false);
   const emailCuerpo = fillTemplate(templates.email_cuerpo, policy, false);
 
   const openWA = () => {
+    if (!waNumber) return;
     const url = `https://wa.me/${waNumber}?text=${encodeURIComponent(msgText)}`;
     window.open(url, '_blank');
   };
@@ -1366,11 +1432,14 @@ function ContactModal({ policy, type, templates, onClose }) {
                       type="radio" 
                       id="opt_tel1" 
                       name="wa_select" 
-                      checked={editablePhone === (policy.telefono || '').replace(/\D/g, '')}
-                      onChange={() => setEditablePhone((policy.telefono || '').replace(/\D/g, ''))}
+                      checked={selectedOption === 'tel1'}
+                      onChange={() => {
+                        setSelectedOption('tel1');
+                        setEditablePhone(tel1Clean);
+                      }}
                     />
                     <label htmlFor="opt_tel1" style={{fontSize: 12, cursor: 'pointer', fontWeight: 500}}>
-                      Tel 1: {policy.lada || '+52'} {policy.telefono || '—'}
+                      Tel 1: {lada1} {policy.telefono || '—'}
                     </label>
                   </div>
                   {policy.telefono2 && (
@@ -1379,11 +1448,14 @@ function ContactModal({ policy, type, templates, onClose }) {
                         type="radio" 
                         id="opt_tel2" 
                         name="wa_select" 
-                        checked={editablePhone === (policy.telefono2 || '').replace(/\D/g, '')}
-                        onChange={() => setEditablePhone((policy.telefono2 || '').replace(/\D/g, ''))}
+                        checked={selectedOption === 'tel2'}
+                        onChange={() => {
+                          setSelectedOption('tel2');
+                          setEditablePhone(tel2Clean);
+                        }}
                       />
                       <label htmlFor="opt_tel2" style={{fontSize: 12, cursor: 'pointer', fontWeight: 500}}>
-                        Tel 2: {policy.lada2 || '+52'} {policy.telefono2}
+                        Tel 2: {lada2} {policy.telefono2}
                       </label>
                     </div>
                   )}
@@ -1392,7 +1464,10 @@ function ContactModal({ policy, type, templates, onClose }) {
                     className="input" 
                     style={{padding: '4px 8px', width: '100%', marginTop: 4}}
                     value={editablePhone}
-                    onChange={(e) => setEditablePhone(e.target.value.replace(/[^0-9]/g, ''))}
+                    onChange={(e) => {
+                      setSelectedOption('custom');
+                      setEditablePhone(e.target.value.replace(/[^0-9]/g, ''));
+                    }}
                     placeholder="Número personalizado"
                   />
                 </div>
@@ -1917,8 +1992,8 @@ function PoliciesPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEm
       </div>
 
       {/* Barra de Filtros */}
-      <div className="card" style={{marginBottom: 20}}>
-        <div className="card-header" style={{flexDirection:'column', alignItems:'flex-start', gap:14}}>
+      <div className="card filters-card">
+        <div className="card-header filters-header">
           <div className="flex justify-between w-full items-center">
             <span className="card-title">📋 Pólizas Qualitas D&M ({filtered.length})</span>
             <div className="flex gap-2">
@@ -1931,15 +2006,18 @@ function PoliciesPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEm
             </div>
           </div>
           <div className="filters-bar">
-            <div className="search-wrapper">
-              <Icons.Search />
-              <input className="input input-search" value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar cliente, póliza, bien, pertenece a..." />
+            <div className="filter-group" style={{flex: '1 1 180px', maxWidth: 260}}>
+              <span className="filter-label">Buscar</span>
+              <div className="search-wrapper">
+                <Icons.Search />
+                <input className="input input-search" value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar cliente, póliza, serie..." />
+              </div>
             </div>
             <div className="filter-group">
               <span className="filter-label">Pertenece a</span>
-              <select className="select" style={{minWidth:140}} value={filterPertenece}
+              <select className="select" style={{minWidth:110}} value={filterPertenece}
                 onChange={e => setFilterPertenece(e.target.value)}>
                 <option value="TODOS">Todos</option>
                 {perteneceOpts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -1947,7 +2025,7 @@ function PoliciesPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEm
             </div>
             <div className="filter-group">
               <span className="filter-label">Agente</span>
-              <select className="select" style={{minWidth:130}} value={filterAgente}
+              <select className="select" style={{minWidth:110}} value={filterAgente}
                 onChange={e => setFilterAgente(e.target.value)}>
                 <option value="TODOS">Todos</option>
                 {agentOpts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -1955,7 +2033,7 @@ function PoliciesPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEm
             </div>
             <div className="filter-group">
               <span className="filter-label">Estatus</span>
-              <select className="select" style={{minWidth:140}} value={filterEstatus}
+              <select className="select" style={{minWidth:120}} value={filterEstatus}
                 onChange={e => setFilterEstatus(e.target.value)}>
                 <option value="TODOS">Todos</option>
                 <option value="PENDIENTE">PENDIENTE</option>
@@ -1965,12 +2043,11 @@ function PoliciesPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEm
                 <option value="CANCELADO">CANCELADO</option>
                 <option value="LIQUIDADO">LIQUIDADO</option>
                 <option value="RENOVACIONES">RENOVACIONES (Próximas)</option>
-                <option value="COMPROBANTES">COMPROBANTES</option>
               </select>
             </div>
             <div className="filter-group">
               <span className="filter-label">Forma de Pago</span>
-              <select className="select" style={{minWidth:140}} value={filterForma}
+              <select className="select" style={{minWidth:110}} value={filterForma}
                 onChange={e => setFilterForma(e.target.value)}>
                 <option value="TODOS">Todas</option>
                 <option value="CONTADO">CONTADO</option>
@@ -1981,12 +2058,12 @@ function PoliciesPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEm
             </div>
             <div className="filter-group">
               <span className="filter-label">Fecha desde</span>
-              <input type="date" className="input" style={{width:140}} value={dateFrom}
+              <input type="date" className="input" style={{width:125}} value={dateFrom}
                 onChange={e => setDateFrom(e.target.value)} />
             </div>
             <div className="filter-group">
               <span className="filter-label">Fecha hasta</span>
-              <input type="date" className="input" style={{width:140}} value={dateTo}
+              <input type="date" className="input" style={{width:125}} value={dateTo}
                 onChange={e => setDateTo(e.target.value)} />
             </div>
           </div>
@@ -2124,7 +2201,10 @@ function UrgentPage({ policies, onEdit, onDelete, onMarkPaid, onWhatsApp, onEmai
               <p>Estas pólizas vencen dentro de 4 días o ya están vencidas. Envía recordatorios ahora.</p>
             </div>
             <div style={{marginLeft:'auto', display:'flex', gap:8}}>
-              <button className="btn btn-warning btn-sm" onClick={() => urgent.forEach(p => p.telefono && window.open(`https://wa.me/${(p.lada||'+52').replace('+','')}${p.telefono}?text=${encodeURIComponent(fillTemplate('Hola {nombre}, le recordamos que su póliza {poliza} vence el {fechaPago} por {monto}. Favor de realizar su pago. Gracias.', p))}`, '_blank'))}>
+              <button className="btn btn-warning btn-sm" onClick={() => urgent.forEach(p => {
+                const num = cleanWhatsAppNumber(p.telefono, p.lada);
+                if (num) window.open(`https://wa.me/${num}?text=${encodeURIComponent(fillTemplate('Hola {nombre}, le recordamos que su póliza {poliza} vence el {fechaPago} por {monto}. Favor de realizar su pago. Gracias.', p))}`, '_blank');
+              })}>
                 💬 WA Masivo
               </button>
             </div>
@@ -2261,8 +2341,8 @@ function CaroPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, 
       </div>
 
       {/* Barra de Filtros */}
-      <div className="card" style={{marginBottom: 20}}>
-        <div className="card-header" style={{flexDirection:'column', alignItems:'flex-start', gap:14}}>
+      <div className="card filters-card">
+        <div className="card-header filters-header">
           <div className="flex justify-between w-full items-center">
             <span className="card-title">🛡️ Pólizas Clave Caro ({filtered.length})</span>
             <div className="flex gap-2">
@@ -2275,15 +2355,18 @@ function CaroPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, 
             </div>
           </div>
           <div className="filters-bar">
-            <div className="search-wrapper">
-              <Icons.Search />
-              <input className="input input-search" value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar cliente, póliza, bien, pertenece a..." />
+            <div className="filter-group" style={{flex: '1 1 180px', maxWidth: 260}}>
+              <span className="filter-label">Buscar</span>
+              <div className="search-wrapper">
+                <Icons.Search />
+                <input className="input input-search" value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar cliente, póliza, serie..." />
+              </div>
             </div>
             <div className="filter-group">
               <span className="filter-label">Pertenece a</span>
-              <select className="select" style={{minWidth:140}} value={filterPertenece}
+              <select className="select" style={{minWidth:110}} value={filterPertenece}
                 onChange={e => setFilterPertenece(e.target.value)}>
                 <option value="TODOS">Todos</option>
                 {perteneceOpts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -2291,7 +2374,7 @@ function CaroPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, 
             </div>
             <div className="filter-group">
               <span className="filter-label">Estatus</span>
-              <select className="select" style={{minWidth:140}} value={filterEstatus}
+              <select className="select" style={{minWidth:120}} value={filterEstatus}
                 onChange={e => setFilterEstatus(e.target.value)}>
                 <option value="TODOS">Todos</option>
                 <option value="PENDIENTE">PENDIENTE</option>
@@ -2301,12 +2384,11 @@ function CaroPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, 
                 <option value="CANCELADO">CANCELADO</option>
                 <option value="LIQUIDADO">LIQUIDADO</option>
                 <option value="RENOVACIONES">RENOVACIONES (Próximas)</option>
-                <option value="COMPROBANTES">COMPROBANTES</option>
               </select>
             </div>
             <div className="filter-group">
               <span className="filter-label">Forma de Pago</span>
-              <select className="select" style={{minWidth:140}} value={filterForma}
+              <select className="select" style={{minWidth:110}} value={filterForma}
                 onChange={e => setFilterForma(e.target.value)}>
                 <option value="TODOS">Todas</option>
                 <option value="CONTADO">CONTADO</option>
@@ -2317,12 +2399,12 @@ function CaroPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, 
             </div>
             <div className="filter-group">
               <span className="filter-label">Fecha desde</span>
-              <input type="date" className="input" style={{width:140}} value={dateFrom}
+              <input type="date" className="input" style={{width:125}} value={dateFrom}
                 onChange={e => setDateFrom(e.target.value)} />
             </div>
             <div className="filter-group">
               <span className="filter-label">Fecha hasta</span>
-              <input type="date" className="input" style={{width:140}} value={dateTo}
+              <input type="date" className="input" style={{width:125}} value={dateTo}
                 onChange={e => setDateTo(e.target.value)} />
             </div>
           </div>
@@ -2566,8 +2648,8 @@ function GmmPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, o
       </div>
 
       {/* Barra de Filtros */}
-      <div className="card" style={{marginBottom: 20}}>
-        <div className="card-header" style={{flexDirection:'column', alignItems:'flex-start', gap:14}}>
+      <div className="card filters-card">
+        <div className="card-header filters-header">
           <div className="flex justify-between w-full items-center">
             <span className="card-title">🏥 Pólizas Gastos Médicos Mayores (GMM) ({filtered.length})</span>
             <div className="flex gap-2">
@@ -2580,15 +2662,18 @@ function GmmPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, o
             </div>
           </div>
           <div className="filters-bar">
-            <div className="search-wrapper">
-              <Icons.Search />
-              <input className="input input-search" value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar asegurado, póliza, plan, pertenece a..." />
+            <div className="filter-group" style={{flex: '1 1 180px', maxWidth: 260}}>
+              <span className="filter-label">Buscar</span>
+              <div className="search-wrapper">
+                <Icons.Search />
+                <input className="input input-search" value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar asegurado, póliza, plan..." />
+              </div>
             </div>
             <div className="filter-group">
               <span className="filter-label">Pertenece a</span>
-              <select className="select" style={{minWidth:140}} value={filterPertenece}
+              <select className="select" style={{minWidth:110}} value={filterPertenece}
                 onChange={e => setFilterPertenece(e.target.value)}>
                 <option value="TODOS">Todos</option>
                 {perteneceOpts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -2596,7 +2681,7 @@ function GmmPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, o
             </div>
             <div className="filter-group">
               <span className="filter-label">Agente / Aseg.</span>
-              <select className="select" style={{minWidth:130}} value={filterAgente}
+              <select className="select" style={{minWidth:110}} value={filterAgente}
                 onChange={e => setFilterAgente(e.target.value)}>
                 <option value="TODOS">Todos</option>
                 {agentOpts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -2604,7 +2689,7 @@ function GmmPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, o
             </div>
             <div className="filter-group">
               <span className="filter-label">Estatus</span>
-              <select className="select" style={{minWidth:140}} value={filterEstatus}
+              <select className="select" style={{minWidth:120}} value={filterEstatus}
                 onChange={e => setFilterEstatus(e.target.value)}>
                 <option value="TODOS">Todos</option>
                 <option value="PENDIENTE">PENDIENTE</option>
@@ -2614,12 +2699,11 @@ function GmmPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, o
                 <option value="CANCELADO">CANCELADO</option>
                 <option value="LIQUIDADO">LIQUIDADO</option>
                 <option value="RENOVACIONES">RENOVACIONES (Próximas)</option>
-                <option value="COMPROBANTES">COMPROBANTES</option>
               </select>
             </div>
             <div className="filter-group">
               <span className="filter-label">Forma de Pago</span>
-              <select className="select" style={{minWidth:140}} value={filterForma}
+              <select className="select" style={{minWidth:110}} value={filterForma}
                 onChange={e => setFilterForma(e.target.value)}>
                 <option value="TODOS">Todas</option>
                 <option value="CONTADO">CONTADO</option>
@@ -2630,12 +2714,12 @@ function GmmPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhatsApp, o
             </div>
             <div className="filter-group">
               <span className="filter-label">Fecha desde</span>
-              <input type="date" className="input" style={{width:140}} value={dateFrom}
+              <input type="date" className="input" style={{width:125}} value={dateFrom}
                 onChange={e => setDateFrom(e.target.value)} />
             </div>
             <div className="filter-group">
               <span className="filter-label">Fecha hasta</span>
-              <input type="date" className="input" style={{width:140}} value={dateTo}
+              <input type="date" className="input" style={{width:125}} value={dateTo}
                 onChange={e => setDateTo(e.target.value)} />
             </div>
           </div>
@@ -2808,6 +2892,7 @@ function AutosOtrasPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhat
   useEscapeKey(deleteConfirm ? () => setDeleteConfirm(null) : null);
 
   const [search, setSearch] = useState('');
+  const [filterPertenece, setFilterPertenece] = useState('TODOS');
   const [filterAgente, setFilterAgente] = useState('TODOS');
   const [filterEstatus, setFilterEstatus] = useState('TODOS');
   const [filterForma, setFilterForma] = useState('TODOS');
@@ -2826,6 +2911,11 @@ function AutosOtrasPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhat
     return { total, pagados, pendientes, vencidos, urgentes, renovaciones, comprobantes };
   }, [policies]);
 
+  const perteneceOpts = useMemo(() => {
+    const list = policies || [];
+    return Array.from(new Set(list.map(p => (p.perteneceA || '').trim()).filter(Boolean))).sort();
+  }, [policies]);
+
   const agentOpts = useMemo(() => {
     const list = policies || [];
     return Array.from(new Set(list.flatMap(p => [p.agente, p.aseguradora]).filter(Boolean)));
@@ -2839,7 +2929,10 @@ function AutosOtrasPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhat
       const matchName = (p.nombre || '').toLowerCase().includes(q);
       const matchPoliza = (p.poliza || '').toLowerCase().includes(q);
       const matchBien = (p.bien || '').toLowerCase().includes(q);
-      if (q && !matchName && !matchPoliza && !matchBien) return false;
+      const matchSerie = (p.serie || p.noSerie || '').toLowerCase().includes(q);
+      const matchPertenece = (p.perteneceA || '').toLowerCase().includes(q);
+      if (q && !matchName && !matchPoliza && !matchBien && !matchSerie && !matchPertenece) return false;
+      if (filterPertenece !== 'TODOS' && (p.perteneceA || '').trim().toLowerCase() !== filterPertenece.toLowerCase()) return false;
       if (filterAgente !== 'TODOS' && p.agente !== filterAgente && p.aseguradora !== filterAgente) return false;
       if (filterEstatus !== 'TODOS') {
         if (filterEstatus === 'RENOVACIONES') {
@@ -2861,14 +2954,14 @@ function AutosOtrasPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhat
       if (dateTo && p.fechaPago > dateTo) return false;
       return true;
     });
-  }, [policies, search, filterAgente, filterEstatus, filterForma, dateFrom, dateTo]);
+  }, [policies, search, filterPertenece, filterAgente, filterEstatus, filterForma, dateFrom, dateTo]);
 
   const clearFilters = () => {
-    setSearch(''); setFilterAgente('TODOS'); setFilterEstatus('TODOS');
+    setSearch(''); setFilterPertenece('TODOS'); setFilterAgente('TODOS'); setFilterEstatus('TODOS');
     setFilterForma('TODOS'); setDateFrom(''); setDateTo('');
   };
 
-  const activeFilters = filterAgente !== 'TODOS' || filterEstatus !== 'TODOS' ||
+  const activeFilters = filterPertenece !== 'TODOS' || filterAgente !== 'TODOS' || filterEstatus !== 'TODOS' ||
     filterForma !== 'TODOS' || dateFrom || dateTo || search;
 
   return (
@@ -2899,8 +2992,8 @@ function AutosOtrasPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhat
       </div>
 
       {/* Barra de Filtros */}
-      <div className="card" style={{marginBottom: 20}}>
-        <div className="card-header" style={{flexDirection:'column', alignItems:'flex-start', gap:14}}>
+      <div className="card filters-card">
+        <div className="card-header filters-header">
           <div className="flex justify-between w-full items-center">
             <span className="card-title">🚗 Autos (Otras Aseguradoras) ({filtered.length})</span>
             <div className="flex gap-2">
@@ -2913,15 +3006,26 @@ function AutosOtrasPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhat
             </div>
           </div>
           <div className="filters-bar">
-            <div className="search-wrapper">
-              <Icons.Search />
-              <input className="input input-search" value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar asegurado, póliza, vehículo..." />
+            <div className="filter-group" style={{flex: '1 1 180px', maxWidth: 260}}>
+              <span className="filter-label">Buscar</span>
+              <div className="search-wrapper">
+                <Icons.Search />
+                <input className="input input-search" value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar asegurado, póliza, serie..." />
+              </div>
+            </div>
+            <div className="filter-group">
+              <span className="filter-label">Pertenece a</span>
+              <select className="select" style={{minWidth:110}} value={filterPertenece}
+                onChange={e => setFilterPertenece(e.target.value)}>
+                <option value="TODOS">Todos</option>
+                {perteneceOpts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              </select>
             </div>
             <div className="filter-group">
               <span className="filter-label">Agente / Aseg.</span>
-              <select className="select" style={{minWidth:130}} value={filterAgente}
+              <select className="select" style={{minWidth:110}} value={filterAgente}
                 onChange={e => setFilterAgente(e.target.value)}>
                 <option value="TODOS">Todos</option>
                 {agentOpts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -2929,7 +3033,7 @@ function AutosOtrasPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhat
             </div>
             <div className="filter-group">
               <span className="filter-label">Estatus</span>
-              <select className="select" style={{minWidth:140}} value={filterEstatus}
+              <select className="select" style={{minWidth:120}} value={filterEstatus}
                 onChange={e => setFilterEstatus(e.target.value)}>
                 <option value="TODOS">Todos</option>
                 <option value="PENDIENTE">PENDIENTE</option>
@@ -2939,12 +3043,11 @@ function AutosOtrasPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhat
                 <option value="CANCELADO">CANCELADO</option>
                 <option value="LIQUIDADO">LIQUIDADO</option>
                 <option value="RENOVACIONES">RENOVACIONES (Próximas)</option>
-                <option value="COMPROBANTES">COMPROBANTES</option>
               </select>
             </div>
             <div className="filter-group">
               <span className="filter-label">Forma de Pago</span>
-              <select className="select" style={{minWidth:140}} value={filterForma}
+              <select className="select" style={{minWidth:110}} value={filterForma}
                 onChange={e => setFilterForma(e.target.value)}>
                 <option value="TODOS">Todas</option>
                 <option value="CONTADO">CONTADO</option>
@@ -2955,12 +3058,12 @@ function AutosOtrasPoliciesPage({ policies, onSave, onDelete, onMarkPaid, onWhat
             </div>
             <div className="filter-group">
               <span className="filter-label">Fecha desde</span>
-              <input type="date" className="input" style={{width:140}} value={dateFrom}
+              <input type="date" className="input" style={{width:125}} value={dateFrom}
                 onChange={e => setDateFrom(e.target.value)} />
             </div>
             <div className="filter-group">
               <span className="filter-label">Fecha hasta</span>
-              <input type="date" className="input" style={{width:140}} value={dateTo}
+              <input type="date" className="input" style={{width:125}} value={dateTo}
                 onChange={e => setDateTo(e.target.value)} />
             </div>
           </div>
@@ -3248,8 +3351,8 @@ function SectionPoliciesPage({
       </div>
 
       {/* Barra de Filtros */}
-      <div className="card" style={{marginBottom: 20}}>
-        <div className="card-header" style={{flexDirection:'column', alignItems:'flex-start', gap:14}}>
+      <div className="card filters-card">
+        <div className="card-header filters-header">
           <div className="flex justify-between w-full items-center">
             <span className="card-title">{icon} Pólizas de {title} ({filtered.length})</span>
             <div className="flex gap-2">
@@ -3262,23 +3365,26 @@ function SectionPoliciesPage({
             </div>
           </div>
           <div className="filters-bar">
-            <div className="search-wrapper">
-              <Icons.Search />
-              <input className="input input-search" value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar cliente, póliza, pertenece a..." />
+            <div className="filter-group" style={{flex: '1 1 180px', maxWidth: 260}}>
+              <span className="filter-label">Buscar</span>
+              <div className="search-wrapper">
+                <Icons.Search />
+                <input className="input input-search" value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar cliente, póliza, serie..." />
+              </div>
             </div>
             <div className="filter-group">
               <span className="filter-label">Pertenece a</span>
-              <select className="select" style={{minWidth:140}} value={filterPertenece}
+              <select className="select" style={{minWidth:110}} value={filterPertenece}
                 onChange={e => setFilterPertenece(e.target.value)}>
                 <option value="TODOS">Todos</option>
                 {perteneceOpts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
             <div className="filter-group">
-              <span className="filter-label">Agente / Aseguradora</span>
-              <select className="select" style={{minWidth:130}} value={filterAgente}
+              <span className="filter-label">Agente / Aseg.</span>
+              <select className="select" style={{minWidth:110}} value={filterAgente}
                 onChange={e => setFilterAgente(e.target.value)}>
                 <option value="TODOS">Todos</option>
                 {agentOpts.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -3286,7 +3392,7 @@ function SectionPoliciesPage({
             </div>
             <div className="filter-group">
               <span className="filter-label">Estatus</span>
-              <select className="select" style={{minWidth:140}} value={filterEstatus}
+              <select className="select" style={{minWidth:120}} value={filterEstatus}
                 onChange={e => setFilterEstatus(e.target.value)}>
                 <option value="TODOS">Todos</option>
                 <option value="PENDIENTE">PENDIENTE</option>
@@ -3296,12 +3402,11 @@ function SectionPoliciesPage({
                 <option value="CANCELADO">CANCELADO</option>
                 <option value="LIQUIDADO">LIQUIDADO</option>
                 <option value="RENOVACIONES">RENOVACIONES (Próximas)</option>
-                <option value="COMPROBANTES">COMPROBANTES</option>
               </select>
             </div>
             <div className="filter-group">
               <span className="filter-label">Forma de Pago</span>
-              <select className="select" style={{minWidth:140}} value={filterForma}
+              <select className="select" style={{minWidth:110}} value={filterForma}
                 onChange={e => setFilterForma(e.target.value)}>
                 <option value="TODOS">Todas</option>
                 <option value="CONTADO">CONTADO</option>
@@ -3312,12 +3417,12 @@ function SectionPoliciesPage({
             </div>
             <div className="filter-group">
               <span className="filter-label">Fecha desde</span>
-              <input type="date" className="input" style={{width:140}} value={dateFrom}
+              <input type="date" className="input" style={{width:125}} value={dateFrom}
                 onChange={e => setDateFrom(e.target.value)} />
             </div>
             <div className="filter-group">
               <span className="filter-label">Fecha hasta</span>
-              <input type="date" className="input" style={{width:140}} value={dateTo}
+              <input type="date" className="input" style={{width:125}} value={dateTo}
                 onChange={e => setDateTo(e.target.value)} />
             </div>
           </div>
@@ -5421,8 +5526,8 @@ const FIREBASE_REST_URL = 'https://pre-pro-consultores-gestion-default-rtdb.fire
       correo: oldPolicy.correo || '',
       telefono: oldPolicy.telefono || '',
       telefono2: oldPolicy.telefono2 || '',
-      lada: oldPolicy.lada || 'mx',
-      lada2: oldPolicy.lada2 || 'mx',
+      lada: (oldPolicy.lada && oldPolicy.lada !== 'mx') ? oldPolicy.lada : '+52',
+      lada2: (oldPolicy.lada2 && oldPolicy.lada2 !== 'mx') ? oldPolicy.lada2 : '+52',
       agente: oldPolicy.agente || '',
       agenteCustom: '',
       aseguradora: oldPolicy.aseguradora || '',
