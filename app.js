@@ -5862,15 +5862,21 @@ const FIREBASE_REST_URL = 'https://pre-pro-consultores-gestion-default-rtdb.fire
       {modalEdit && (
         <PolicyModal 
           policy={modalEdit} 
-          isCaro={!!modalEdit._isCaro}
-          isGmm={!!modalEdit._isGmm}
-          isAutos={!!modalEdit._isAutos}
-          onSave={
-            modalEdit._isCaro ? saveCaroPolicy :
-            modalEdit._isGmm ? saveGmmPolicy :
-            modalEdit._isAutos ? saveAutosPolicy :
-            savePolicy
-          } 
+          isCaro={!!modalEdit._isCaro || caroPolicies.some(x => x.id === modalEdit.id)}
+          isGmm={!!modalEdit._isGmm || gmmPolicies.some(x => x.id === modalEdit.id)}
+          isAutos={!!modalEdit._isAutos || autosPolicies.some(x => x.id === modalEdit.id)}
+          isVida={!!modalEdit._isVida || vidaPolicies.some(x => x.id === modalEdit.id)}
+          isDanos={!!modalEdit._isDanos || danosPolicies.some(x => x.id === modalEdit.id)}
+          isHogar={!!modalEdit._isHogar || hogarPolicies.some(x => x.id === modalEdit.id)}
+          onSave={(p) => {
+            if (modalEdit._isCaro || caroPolicies.some(x => x.id === modalEdit.id)) saveCaroPolicy(p);
+            else if (modalEdit._isGmm || gmmPolicies.some(x => x.id === modalEdit.id)) saveGmmPolicy(p);
+            else if (modalEdit._isAutos || autosPolicies.some(x => x.id === modalEdit.id)) saveAutosPolicy(p);
+            else if (modalEdit._isVida || vidaPolicies.some(x => x.id === modalEdit.id)) saveVidaPolicy(p);
+            else if (modalEdit._isDanos || danosPolicies.some(x => x.id === modalEdit.id)) saveDanosPolicy(p);
+            else if (modalEdit._isHogar || hogarPolicies.some(x => x.id === modalEdit.id)) saveHogarPolicy(p);
+            else savePolicy(p);
+          }} 
           onClose={() => setModalEdit(null)} 
           toast={toast} 
         />
@@ -5878,12 +5884,15 @@ const FIREBASE_REST_URL = 'https://pre-pro-consultores-gestion-default-rtdb.fire
       {modalPaid && (
         <MarkPaidModal 
           policy={modalPaid} 
-          onConfirm={
-            modalPaid._isCaro ? markCaroPaid :
-            modalPaid._isGmm ? markGmmPaid :
-            modalPaid._isAutos ? markAutosPaid :
-            markPaid
-          } 
+          onConfirm={(p, nextDate, comp, isLast, nextMonto) => {
+            if (modalPaid._isCaro || caroPolicies.some(x => x.id === modalPaid.id)) markCaroPaid(p, nextDate, comp, isLast, nextMonto);
+            else if (modalPaid._isGmm || gmmPolicies.some(x => x.id === modalPaid.id)) markGmmPaid(p, nextDate, comp, isLast, nextMonto);
+            else if (modalPaid._isAutos || autosPolicies.some(x => x.id === modalPaid.id)) markAutosPaid(p, nextDate, comp, isLast, nextMonto);
+            else if (modalPaid._isVida || vidaPolicies.some(x => x.id === modalPaid.id)) markVidaPaid(p, nextDate, comp, isLast, nextMonto);
+            else if (modalPaid._isDanos || danosPolicies.some(x => x.id === modalPaid.id)) markDanosPaid(p, nextDate, comp, isLast, nextMonto);
+            else if (modalPaid._isHogar || hogarPolicies.some(x => x.id === modalPaid.id)) markHogarPaid(p, nextDate, comp, isLast, nextMonto);
+            else markPaid(p, nextDate, comp, isLast, nextMonto);
+          }} 
           onClose={() => setModalPaid(null)} 
           toast={toast} 
         />
